@@ -1,6 +1,7 @@
 """Serialize a Song to ChordPro text and guess metadata."""
 
 import re
+import statistics
 
 from app.ir import LayoutDoc
 from app.models import Song
@@ -17,6 +18,11 @@ _BY_ARTIST = re.compile(
 )
 # Songbook titles are often "<Song> Chords by <Artist>"; drop the "Chords".
 _TRAILING_CHORDS = re.compile(r"\s+chords?\s*$", re.IGNORECASE)
+
+# The largest text on a page counts as a heading only when it is at least this
+# many times the page's median text size. Real songbook titles are 1.3-1.9x the
+# body size; uniform text (e.g. pasted text) is 1.0x and has no heading.
+_TITLE_SIZE_RATIO = 1.15
 
 
 def serialize(song: Song) -> str:
@@ -82,9 +88,27 @@ def guess_metadata(layout: LayoutDoc) -> dict[str, str]:
 
 
 def _largest_text_first_page(layout: LayoutDoc) -> str:
-    """Return the text of the largest span on the first page, if any."""
+    """Return the first page's heading text, or "" when there is no heading.
+
+    The largest text is treated as a title only when it is meaningfully larger
+    than the page's median text size. With uniform text (e.g. pasted text, where
+    every line is the same size) there is no heading, so we return "".
+    """
     if not layout.pages:
         return ""
+    sizes = [
+        span.size
+        for line in layout.pages[0].lines
+        for span in line.spans
+        if span.size
+    ]
+    if not sizes:
+        return ""
+
+    median_size = statistics.median(sizes)
+    if median_size <= 0:
+        return ""
+
     best_text = ""
     best_size = 0.0
     for line in layout.pages[0].lines:
@@ -93,4 +117,11 @@ def _largest_text_first_page(layout: LayoutDoc) -> str:
             if size > best_size and span.text.strip():
                 best_size = size
                 best_text = line.text.strip()
+
+    # Require a clear size difference before calling anything a heading.
+    if best_size < median_size * _TITLE_SIZE_RATIO:
+        return ""
+    # A directive line is metadata, not a title.
+    if best_text.startswith("{"):
+        return ""
     return best_text

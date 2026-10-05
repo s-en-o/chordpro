@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 
-import { convertPdf, type QAReport } from "./api";
+import { convertPdf, convertText, type QAReport } from "./api";
+
+type Mode = "pdf" | "text";
 
 export default function App() {
+  const [mode, setMode] = useState<Mode>("pdf");
   const [file, setFile] = useState<File | null>(null);
+  const [pastText, setPastText] = useState<string>("");
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [chordpro, setChordpro] = useState<string>("");
   const [qa, setQa] = useState<QAReport | null>(null);
   const [error, setError] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
 
-  // Keep an object URL for the preview, and clean it up when it changes.
+  // Keep an object URL for the PDF preview, and clean it up when it changes.
   useEffect(() => {
     if (!file) {
       setPreviewUrl("");
@@ -22,11 +26,13 @@ export default function App() {
   }, [file]);
 
   async function handleConvert() {
-    if (!file) return;
     setBusy(true);
     setError("");
     try {
-      const result = await convertPdf(file);
+      const result =
+        mode === "pdf" && file
+          ? await convertPdf(file)
+          : await convertText(pastText);
       setChordpro(result.chordpro);
       setQa(result.qa);
     } catch (caught) {
@@ -41,28 +47,39 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = (file?.name.replace(/\.pdf$/i, "") ?? "song") + ".cho";
+    const baseName =
+      mode === "pdf"
+        ? (file?.name.replace(/\.pdf$/i, "") ?? "song")
+        : "song";
+    link.download = baseName + ".cho";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
+  const canConvert = mode === "pdf" ? Boolean(file) : pastText.trim().length > 0;
+
   return (
     <main className="app">
-      <h1>PDF to ChordPro</h1>
+      <h1>ChordPro Converter</h1>
 
-      <input
-        type="file"
-        accept="application/pdf"
-        onChange={(event) => {
-          setFile(event.target.files?.[0] ?? null);
-          setChordpro("");
-          setQa(null);
-          setError("");
-        }}
-      />
-      <button onClick={handleConvert} disabled={!file || busy}>
+      <div className="tabs">
+        <button
+          className={mode === "pdf" ? "tab active" : "tab"}
+          onClick={() => setMode("pdf")}
+        >
+          PDF
+        </button>
+        <button
+          className={mode === "text" ? "tab active" : "tab"}
+          onClick={() => setMode("text")}
+        >
+          Paste text
+        </button>
+      </div>
+
+      <button onClick={handleConvert} disabled={!canConvert || busy}>
         {busy ? "Converting…" : "Convert"}
       </button>
 
@@ -71,10 +88,31 @@ export default function App() {
       <div className="panes">
         <div className="pane">
           <h2>Original</h2>
-          {previewUrl ? (
-            <iframe title="PDF preview" src={previewUrl} className="preview" />
+          {mode === "pdf" ? (
+            <>
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(event) => {
+                  setFile(event.target.files?.[0] ?? null);
+                  setChordpro("");
+                  setQa(null);
+                  setError("");
+                }}
+              />
+              {previewUrl ? (
+                <iframe title="PDF preview" src={previewUrl} className="preview" />
+              ) : (
+                <p className="hint">Choose a PDF to preview it here.</p>
+              )}
+            </>
           ) : (
-            <p className="hint">Choose a PDF to preview it here.</p>
+            <textarea
+              className="editor"
+              value={pastText}
+              onChange={(event) => setPastText(event.target.value)}
+              placeholder={"Paste a chord sheet here.\n\nC     G\nHello world"}
+            />
           )}
         </div>
 
@@ -91,6 +129,10 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {qa && qa.notes.length > 0 && (
+        <p className="warning">{qa.notes.join(" ")}</p>
+      )}
 
       {qa && qa.unpaired_chords.length > 0 && (
         <p className="warning">

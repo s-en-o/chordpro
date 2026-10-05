@@ -92,3 +92,27 @@ def test_guess_metadata_keeps_document_artist_when_present() -> None:
         }
     )
     assert guess_metadata(layout) == {"title": "Comes A Time", "artist": "Neil Young"}
+
+
+def test_guess_metadata_ignores_uniform_text_without_a_heading() -> None:
+    # Pasted text has one font size everywhere, so no line is a heading and no
+    # title should be invented from the first line.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C       G", 12), make_line("Hello world", 12)],
+    )
+    layout = LayoutDoc(pages=[page])
+    assert guess_metadata(layout) == {}
+
+
+def test_guess_metadata_does_not_treat_directive_as_title() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{title: Test}", 12), make_line("[C]Hello", 12)],
+    )
+    layout = LayoutDoc(pages=[page])
+    assert guess_metadata(layout) == {}

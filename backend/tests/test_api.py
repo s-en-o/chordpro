@@ -120,3 +120,33 @@ def test_convert_falls_back_to_ocr_for_image_pdf() -> None:
     assert "Hello" in body["chordpro"]
     # The QA report tells the user OCR was used.
     assert any("OCR" in note for note in body["qa"]["notes"])
+
+
+def test_convert_text_aligns_chords_above_lyrics() -> None:
+    response = client.post(
+        "/api/convert-text", json={"text": "C     G\nHello world\n"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "[C]Hello [G]world" in body["chordpro"]
+    assert body["qa"]["notes"] == []
+
+
+def test_convert_text_passes_inline_chordpro_through() -> None:
+    response = client.post(
+        "/api/convert-text", json={"text": "[C]Hello [G]world\n"}
+    )
+    assert response.status_code == 200
+    assert "[C]Hello [G]world" in response.json()["chordpro"]
+
+
+def test_convert_text_rejects_empty() -> None:
+    response = client.post("/api/convert-text", json={"text": "   \n  \n"})
+    assert response.status_code == 400
+    assert response.json()["error"] == "no text to convert"
+
+
+def test_convert_text_rejects_too_large() -> None:
+    response = client.post("/api/convert-text", json={"text": "x" * (1024 * 1024 + 1)})
+    assert response.status_code == 413
+    assert response.json()["error"] == "text too large"
