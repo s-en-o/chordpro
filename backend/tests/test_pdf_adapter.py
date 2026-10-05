@@ -127,6 +127,21 @@ def make_block(x0: float, y0: float, x1: float, texts: list[str]) -> tuple:
     return ((x0, y0, x1, block_bottom), lines)
 
 
+def make_custom_block(
+    x0: float, x1: float, line_specs: list[tuple[float, str]]
+) -> tuple:
+    """Build a block from explicit ``(y, text)`` lines.
+
+    Real PDFs sometimes put several lines with different y-values in one block,
+    including lines that share a baseline. This lets a test reproduce that
+    mixed shape.
+    """
+    lines = [make_line(x0, y, text) for y, text in line_specs]
+    top = min(y for y, _ in line_specs)
+    bottom = max(y for y, _ in line_specs) + 12
+    return ((x0, top, x1, bottom), lines)
+
+
 def make_baseline_block(
     x0: float, y0: float, x1: float, words: list[str], reversed_order: bool = False
 ) -> tuple:
@@ -146,6 +161,23 @@ def make_baseline_block(
         spans.reverse()
     lines = [line for _, line in spans]
     return ((x0, y0, x1, y0 + 12), lines)
+
+
+def test_order_blocks_keeps_chord_beside_its_lyric_when_block_starts_higher() -> None:
+    # Regression for a real PDF ("Best Part"): the top of a page has a
+    # multi-line decoration block whose top edge sits slightly above a chord
+    # block on the same baseline as the lyric. Sorting whole blocks by their
+    # top edge would emit the decoration block (and its lyric lines) before the
+    # chord, mis-ordering the chord relative to its lyric. Sorting all lines by
+    # (y0, x0) puts them in true reading order.
+    decoration = make_custom_block(56.7, 221.0, [(39.3, "("), (52.8, "If you love me")])
+    chord = make_custom_block(62.5, 92.0, [(39.7, "Dmaj7")])
+    lines = PdfAdapter()._order_blocks_into_reading_order(
+        [decoration, chord], page_width=595, page_height=842
+    )
+    # "(" is the topmost line at y=39.3; the chord at y=39.7 comes next, before
+    # the lyric line at y=52.8.
+    assert [line.text for line in lines] == ["(", "Dmaj7", "If you love me"]
 
 
 def test_order_blocks_stays_single_column_when_only_one_side_has_blocks() -> None:
