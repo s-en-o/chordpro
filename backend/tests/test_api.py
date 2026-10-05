@@ -150,3 +150,13 @@ def test_convert_text_rejects_too_large() -> None:
     response = client.post("/api/convert-text", json={"text": "x" * (1024 * 1024 + 1)})
     assert response.status_code == 413
     assert response.json()["error"] == "text too large"
+
+
+def test_convert_text_survives_lone_surrogate() -> None:
+    # Crafted JSON can carry a lone surrogate; it must not become a 500.
+    response = client.post(
+        "/api/convert-text",
+        content=b'{"text":"A\\ud800B"}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 200

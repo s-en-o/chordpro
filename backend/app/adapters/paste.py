@@ -26,7 +26,6 @@ class PasteTextAdapter:
         text = data.decode("utf-8", errors="replace")
         normalized = self._normalize(text)
         raw_lines = normalized.split("\n")
-
         lines: list[TextLine] = []
         for index, raw_line in enumerate(raw_lines):
             if raw_line.strip() == "":
@@ -48,7 +47,8 @@ class PasteTextAdapter:
         )
 
     def _normalize(self, text: str) -> str:
-        """Normalize line endings, tabs, and non-breaking spaces."""
+        """Normalize line endings, tabs, leading BOM, and non-breaking spaces."""
+        text = text.replace("\ufeff", "")
         text = text.replace("\r\n", "\n").replace("\r", "\n")
         text = text.replace("\u00a0", " ")
         return text.expandtabs(TAB_WIDTH)

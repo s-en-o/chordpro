@@ -29,12 +29,16 @@ export default function App() {
     setBusy(true);
     setError("");
     try {
-      const result =
-        mode === "pdf" && file
-          ? await convertPdf(file)
-          : await convertText(pastText);
-      setChordpro(result.chordpro);
-      setQa(result.qa);
+      if (mode === "pdf") {
+        if (!file) return;
+        const result = await convertPdf(file);
+        setChordpro(result.chordpro);
+        setQa(result.qa);
+      } else {
+        const result = await convertText(pastText);
+        setChordpro(result.chordpro);
+        setQa(result.qa);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Conversion failed");
     } finally {
@@ -60,6 +64,14 @@ export default function App() {
 
   const canConvert = mode === "pdf" ? Boolean(file) : pastText.trim().length > 0;
 
+  function selectMode(next: Mode) {
+    setMode(next);
+    // A new source mode invalidates the previous result.
+    setChordpro("");
+    setQa(null);
+    setError("");
+  }
+
   return (
     <main className="app">
       <h1>ChordPro Converter</h1>
@@ -67,13 +79,13 @@ export default function App() {
       <div className="tabs">
         <button
           className={mode === "pdf" ? "tab active" : "tab"}
-          onClick={() => setMode("pdf")}
+          onClick={() => selectMode("pdf")}
         >
           PDF
         </button>
         <button
           className={mode === "text" ? "tab active" : "tab"}
-          onClick={() => setMode("text")}
+          onClick={() => selectMode("text")}
         >
           Paste text
         </button>
@@ -110,7 +122,12 @@ export default function App() {
             <textarea
               className="editor"
               value={pastText}
-              onChange={(event) => setPastText(event.target.value)}
+              onChange={(event) => {
+                setPastText(event.target.value);
+                setChordpro("");
+                setQa(null);
+                setError("");
+              }}
               placeholder={"Paste a chord sheet here.\n\nC     G\nHello world"}
             />
           )}

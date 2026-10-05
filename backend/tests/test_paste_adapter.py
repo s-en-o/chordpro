@@ -35,6 +35,10 @@ def test_paste_normalizes_non_breaking_space() -> None:
     assert to_lines("C\u00a0G") == ["C G"]
 
 
+def test_paste_strips_leading_bom() -> None:
+    assert to_lines("\ufeffC     G") == ["C     G"]
+
+
 def test_paste_preserves_leading_whitespace_for_alignment() -> None:
     # Leading spaces are how a chord is positioned over a lyric; they must
     # survive so the geometry-based alignment can use them.

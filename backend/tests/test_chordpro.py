@@ -108,11 +108,26 @@ def test_guess_metadata_ignores_uniform_text_without_a_heading() -> None:
 
 
 def test_guess_metadata_does_not_treat_directive_as_title() -> None:
+    # The directive line is the LARGEST text, so only the directive guard can
+    # reject it (the size-ratio rule would otherwise accept it as a heading).
     page = Page(
         number=1,
         width=600,
         height=800,
-        lines=[make_line("{title: Test}", 12), make_line("[C]Hello", 12)],
+        lines=[make_line("{title: Test}", 24), make_line("body text", 10)],
     )
     layout = LayoutDoc(pages=[page])
     assert guess_metadata(layout) == {}
+
+
+def test_guess_metadata_infers_title_from_single_span_page() -> None:
+    # A title-only first page has one span; with no body to compare against it
+    # is still treated as a heading.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("Solitary Title", 18)],
+    )
+    layout = LayoutDoc(pages=[page])
+    assert guess_metadata(layout) == {"title": "Solitary Title"}

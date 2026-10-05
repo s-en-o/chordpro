@@ -78,10 +78,12 @@ async def convert_text(request: ConvertTextRequest) -> JSONResponse:
     if len(request.text) > MAX_TEXT_CHARS:
         return JSONResponse(status_code=413, content={"error": "text too large"})
 
+    # Encode with replacement so lone surrogates (possible via crafted JSON)
+    # do not raise UnicodeEncodeError and become a 500.
+    data = request.text.encode("utf-8", errors="replace")
+
     try:
-        layout = await run_in_threadpool(
-            PasteTextAdapter().to_layout, request.text.encode("utf-8")
-        )
+        layout = await run_in_threadpool(PasteTextAdapter().to_layout, data)
     except NoTextLayerError:
         return JSONResponse(status_code=400, content={"error": "no text to convert"})
 

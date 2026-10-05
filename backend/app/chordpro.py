@@ -105,10 +105,6 @@ def _largest_text_first_page(layout: LayoutDoc) -> str:
     if not sizes:
         return ""
 
-    median_size = statistics.median(sizes)
-    if median_size <= 0:
-        return ""
-
     best_text = ""
     best_size = 0.0
     for line in layout.pages[0].lines:
@@ -118,10 +114,17 @@ def _largest_text_first_page(layout: LayoutDoc) -> str:
                 best_size = size
                 best_text = line.text.strip()
 
-    # Require a clear size difference before calling anything a heading.
-    if best_size < median_size * _TITLE_SIZE_RATIO:
-        return ""
     # A directive line is metadata, not a title.
     if best_text.startswith("{"):
         return ""
+
+    # With a single span there is no body to compare against, so treat it as a
+    # heading (a title-only first page). Otherwise require the largest text to
+    # be meaningfully larger than the page's median text size; uniform text
+    # (e.g. pasted text) has no heading.
+    if len(sizes) > 1:
+        median_size = statistics.median(sizes)
+        if median_size > 0 and best_size < median_size * _TITLE_SIZE_RATIO:
+            return ""
+
     return best_text
