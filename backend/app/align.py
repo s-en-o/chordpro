@@ -63,6 +63,31 @@ def chord_only_text(line: TextLine) -> str:
     return " ".join(f"[{chord}]" for chord in chords)
 
 
+def _collect_chord_stack(
+    labels: list[LineLabel],
+    start: int,
+) -> tuple[list[LineLabel], list[LineLabel], int]:
+    """Collect a run of chord lines (possibly separated by blanks) and its trailing blanks.
+
+    Blank lines *between* two chord lines are interior to the stack and dropped;
+    blank lines *after* the last chord (before the lyric) are trailing and
+    returned so the caller can preserve them. Returns the chord labels, the
+    trailing blank labels, and the index of the lyric line the stack pairs with.
+    """
+    chord_labels: list[LineLabel] = []
+    trailing_blanks: list[LineLabel] = []
+    index = start
+    while index < len(labels) and labels[index].kind in ("chord", "blank"):
+        if labels[index].kind == "chord":
+            # A new chord after blanks means those blanks were interior.
+            chord_labels.append(labels[index])
+            trailing_blanks = []
+        else:
+            trailing_blanks.append(labels[index])
+        index += 1
+    return chord_labels, trailing_blanks, index
+
+
 def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
     """Turn classified lines into ChordPro-ready lines for one page."""
     song_lines: list[SongLine] = []
@@ -70,21 +95,12 @@ def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
     while index < len(labels):
         label = labels[index]
         if label.kind == "chord":
-            # Collect the whole run of stacked chord lines. classify_page
-            # guarantees the run ends at a lyric line.
-            chord_labels: list[LineLabel] = []
-            while index < len(labels) and labels[index].kind == "chord":
-                chord_labels.append(labels[index])
-                index += 1
-            # Skip any blank lines between the chord stack and its lyric.
-            blank_labels: list[LineLabel] = []
-            while index < len(labels) and labels[index].kind == "blank":
-                blank_labels.append(labels[index])
-                index += 1
-            # classify_page guarantees the run ends at a lyric (possibly across blanks).
+            # Collect the whole stack of chord lines above one lyric.
+            # classify_page guarantees the stack ends at a lyric line.
+            chord_labels, trailing_blanks, index = _collect_chord_stack(labels, index)
             song_lines.append(merge_chord_lines(chord_labels, labels[index], qa))
             index += 1
-            for _ in blank_labels:
+            for _ in trailing_blanks:
                 song_lines.append(SongLine(kind="blank", text=""))
         elif label.kind == "chord_only":
             song_lines.append(
