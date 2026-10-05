@@ -7,6 +7,11 @@ top-left origin, in points.
 
 from dataclasses import dataclass, field
 
+# Metadata key a source sets to say "do not infer a title from my first line".
+# Used by sources with no heading (e.g. pasted text), consumed by the metadata
+# guesser.
+NO_HEADING_KEY = "no_heading_inference"
+
 
 @dataclass
 class TextSpan:

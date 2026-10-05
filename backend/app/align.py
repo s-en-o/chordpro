@@ -128,6 +128,9 @@ def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
         elif label.kind == "blank":
             song_lines.append(SongLine(kind="blank", text=""))
             index += 1
+        elif label.kind == "directive":
+            song_lines.append(SongLine(kind="directive", text=label.line.text))
+            index += 1
         else:
             song_lines.append(SongLine(kind="lyric", text=label.line.text))
             index += 1

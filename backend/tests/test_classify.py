@@ -86,6 +86,33 @@ def test_classify_treats_blank_between_chord_and_lyric_as_transparent() -> None:
     assert [label.kind for label in labels] == ["chord", "blank", "lyric"]
 
 
+def test_classify_marks_directive_lines() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{title: My Song}", 0), make_line("[C]Hello", 14)],
+    )
+    labels = classify_page(page)
+    assert [label.kind for label in labels] == ["directive", "lyric"]
+
+
+def test_classify_does_not_merge_chord_into_directive() -> None:
+    # A chord row directly above a directive is a boundary, not a lyric pair.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[
+            make_line("C     G", 0),
+            make_line("{title: My Song}", 14),
+            make_line("[C]Hello", 28),
+        ],
+    )
+    labels = classify_page(page)
+    assert [label.kind for label in labels] == ["chord_only", "directive", "lyric"]
+
+
 def test_classify_keeps_stacked_chord_lines() -> None:
     page = Page(
         number=1,
