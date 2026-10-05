@@ -33,3 +33,14 @@ async def convert(file: UploadFile = File(...)) -> JSONResponse:
         status_code=200,
         content={"chordpro": serialize(song), "qa": asdict(song.qa)},
     )
+
+
+from pathlib import Path
+
+from fastapi.staticfiles import StaticFiles
+
+# In the Docker image the built frontend is copied to /app/frontend_dist.
+# Locally, this path simply won't exist, so we only mount it when present.
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "frontend_dist"
+if _STATIC_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="static")
