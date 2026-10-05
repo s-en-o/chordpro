@@ -4,12 +4,13 @@ from typing import Any
 
 import pymupdf as fitz  # PyMuPDF; `pymupdf` is the current module name, aliased to keep brief code unchanged
 
+from app.adapters.base import NoTextLayerError
 from app.adapters.layout import LayoutBuilder
 from app.ir import LayoutDoc, Page
 
-
-class NoTextLayerError(Exception):
-    """Raised when a PDF contains no extractable text."""
+# Re-exported so existing imports (``from app.adapters.pdf import NoTextLayerError``)
+# keep working; the class itself is defined in base.py.
+__all__ = ["NoTextLayerError", "PdfAdapter"]
 
 
 class PdfAdapter(LayoutBuilder):

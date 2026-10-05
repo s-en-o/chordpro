@@ -1,3 +1,4 @@
+import shutil
 from io import BytesIO
 
 import pymupdf
@@ -10,7 +11,8 @@ from app.api import app
 
 client = TestClient(app)
 
-tesseract_available = pymupdf.get_tessdata() is not None
+# get_tessdata() raises when Tesseract is absent, so check the binary instead.
+tesseract_available = shutil.which("tesseract") is not None
 
 
 def make_text_pdf() -> bytes:
@@ -44,6 +46,7 @@ def test_convert_returns_chordpro_and_qa() -> None:
     assert body["qa"]["unpaired_chords"] == []
 
 
+@pytest.mark.skipif(not tesseract_available, reason="Tesseract not installed")
 def test_convert_rejects_pdf_without_text() -> None:
     response = client.post(
         "/api/convert",

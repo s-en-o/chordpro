@@ -1,3 +1,4 @@
+import shutil
 from io import BytesIO
 from typing import Any
 
@@ -9,7 +10,8 @@ from reportlab.pdfgen import canvas
 from app.adapters.ocr import OcrAdapter
 from app.adapters.pdf import NoTextLayerError, PdfAdapter
 
-tesseract_available = pymupdf.get_tessdata() is not None
+# get_tessdata() raises when Tesseract is absent, so check the binary instead.
+tesseract_available = shutil.which("tesseract") is not None
 
 
 def make_vector_only_pdf() -> bytes:
@@ -26,6 +28,7 @@ def make_vector_only_pdf() -> bytes:
     return buffer.getvalue()
 
 
+@pytest.mark.skipif(not tesseract_available, reason="Tesseract not installed")
 def test_ocr_adapter_raises_when_ocr_finds_nothing() -> None:
     # A truly blank page yields no OCR text -> NoTextLayerError, so the API can
     # report a clear failure instead of returning an empty song.
@@ -55,6 +58,35 @@ def test_ocr_adapter_groups_words_on_one_baseline_into_a_row() -> None:
         for block in result["blocks"]
     ]
     assert texts == ["Hello world", "G", "lyric"]
+
+
+def test_ocr_adapter_keeps_rows_separate_with_mismatched_heights() -> None:
+    # A tall chord box directly above a shorter lyric box must stay two rows.
+    # With a "taller word wins" threshold these would merge.
+    adapter = OcrAdapter()
+    result = adapter._words_to_page_dict(
+        [
+            (100.0, 38.0, 120.0, 60.0, "G", 0, 0, 0),  # height 22
+            (100.0, 52.0, 170.0, 66.0, "hello", 0, 0, 1),  # height 14
+        ]
+    )
+    texts = [
+        "".join(span["text"] for span in block["lines"][0]["spans"]).strip()
+        for block in result["blocks"]
+    ]
+    assert texts == ["G", "hello"]
+
+
+def test_ocr_adapter_has_no_trailing_space_on_last_word() -> None:
+    adapter = OcrAdapter()
+    result = adapter._words_to_page_dict(
+        [
+            (100.0, 10.0, 130.0, 24.0, "Hello", 0, 0, 0),
+            (140.0, 10.0, 170.0, 24.0, "world", 0, 0, 1),
+        ]
+    )
+    spans = result["blocks"][0]["lines"][0]["spans"]
+    assert [span["text"] for span in spans] == ["Hello ", "world"]
 
 
 def test_ocr_adapter_builds_page_with_ocr_words() -> None:

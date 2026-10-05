@@ -8,8 +8,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
+from app.adapters.base import NoTextLayerError, OcrUnavailableError
 from app.adapters.ocr import OcrAdapter
-from app.adapters.pdf import NoTextLayerError, PdfAdapter
+from app.adapters.pdf import PdfAdapter
 from app.chordpro import serialize
 from app.pipeline import convert_layout
 
@@ -39,6 +40,14 @@ async def convert(file: UploadFile = File(...)) -> JSONResponse:
         except NoTextLayerError:
             return JSONResponse(
                 status_code=400, content={"error": "not a text-based PDF"}
+            )
+        except OcrUnavailableError:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "no text layer, and OCR is unavailable "
+                    "(Tesseract is not installed)"
+                },
             )
 
     song = await run_in_threadpool(convert_layout, layout)
