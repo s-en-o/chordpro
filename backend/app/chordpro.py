@@ -73,7 +73,7 @@ def guess_metadata(layout: LayoutDoc) -> dict[str, str]:
     metadata: dict[str, str] = {}
 
     raw_title = layout.metadata.get("title", "").strip()
-    if not raw_title and not layout.metadata.get(NO_HEADING_KEY):
+    if not raw_title and NO_HEADING_KEY not in layout.metadata:
         raw_title = _largest_text_first_page(layout)
 
     title, derived_artist = clean_title(raw_title) if raw_title else ("", "")
