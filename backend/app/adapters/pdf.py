@@ -227,7 +227,9 @@ class PdfAdapter:
         block on nearly the same baseline (a decoration block above a chord
         row), so sorting whole blocks first would mis-order those lines.
         Sorting all lines by (y0, x0) keeps chords that share one baseline in
-        left-to-right order and puts each chord next to its lyric.
+        left-to-right order and puts each chord next to its lyric. Block
+        contiguity is intentionally not preserved: when two blocks overlap in
+        y within the same column, their lines interleave by baseline.
         """
         all_lines: list[TextLine] = []
         for _, block_lines in blocks:

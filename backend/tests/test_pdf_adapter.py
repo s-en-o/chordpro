@@ -129,12 +129,12 @@ def make_block(x0: float, y0: float, x1: float, texts: list[str]) -> tuple:
 
 def make_custom_block(
     x0: float, x1: float, line_specs: list[tuple[float, str]]
-) -> tuple:
+) -> tuple[tuple[float, float, float, float], list[TextLine]]:
     """Build a block from explicit ``(y, text)`` lines.
 
-    Real PDFs sometimes put several lines with different y-values in one block,
-    including lines that share a baseline. This lets a test reproduce that
-    mixed shape.
+    Real PDFs sometimes put several lines with different top edges in one
+    block, and a block's top edge can sit above another block's line. This lets
+    a test reproduce that mixed shape.
     """
     lines = [make_line(x0, y, text) for y, text in line_specs]
     top = min(y for y, _ in line_specs)
@@ -178,6 +178,18 @@ def test_order_blocks_keeps_chord_beside_its_lyric_when_block_starts_higher() ->
     # "(" is the topmost line at y=39.3; the chord at y=39.7 comes next, before
     # the lyric line at y=52.8.
     assert [line.text for line in lines] == ["(", "Dmaj7", "If you love me"]
+
+
+def test_order_blocks_interleaves_overlapping_blocks_by_baseline() -> None:
+    # Two left-column blocks that overlap in y. Lines are ordered by baseline
+    # across both blocks (block contiguity is intentionally not preserved), so
+    # the output is a strict top-to-bottom read.
+    block_a = make_custom_block(72, 240, [(0.0, "a1"), (40.0, "a2")])
+    block_b = make_custom_block(72, 240, [(20.0, "b1"), (60.0, "b2")])
+    lines = PdfAdapter()._order_blocks_into_reading_order(
+        [block_a, block_b], page_width=612, page_height=800
+    )
+    assert [line.text for line in lines] == ["a1", "b1", "a2", "b2"]
 
 
 def test_order_blocks_stays_single_column_when_only_one_side_has_blocks() -> None:
