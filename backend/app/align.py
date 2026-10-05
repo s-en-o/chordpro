@@ -46,12 +46,15 @@ def merge_chord_lines(
             buckets.setdefault(index, []).append(f"[{token}]")
 
     # Rebuild the line left-to-right, emitting each character's chords first.
-    result = ""
+    # Python note for JS/TS readers: strings are immutable, so `result += x`
+    # inside a loop copies the whole string every time. Collect the pieces in
+    # a list and join once at the end instead.
+    parts: list[str] = []
     for position in range(len(lyric_text) + 1):
-        result += "".join(buckets.get(position, []))
+        parts.extend(buckets.get(position, []))
         if position < len(lyric_text):
-            result += lyric_text[position]
-    return SongLine(kind="lyric", text=result)
+            parts.append(lyric_text[position])
+    return SongLine(kind="lyric", text="".join(parts))
 
 
 def chord_only_text(line: TextLine) -> str:
