@@ -25,5 +25,5 @@ filterwarnings = [
     # Python 3.13 (e.g. "builtin type SwigPyPacked has no __module__ attribute").
     # They are import-time noise from a third-party C extension, not defects in
     # this project, and would otherwise pollute an otherwise clean test run.
-    "ignore:builtin type Swig.*has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type (SwigPyPacked|SwigPyObject|swigvarlink) has no __module__ attribute:DeprecationWarning",
 ]

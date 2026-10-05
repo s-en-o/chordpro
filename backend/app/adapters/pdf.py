@@ -1,5 +1,7 @@
 """PDF source adapter, backed by PyMuPDF (imported as ``fitz``)."""
 
+from typing import Any
+
 import pymupdf as fitz  # PyMuPDF; `pymupdf` is the current module name, aliased to keep brief code unchanged
 
 from app.ir import LayoutDoc, Page, TextLine, TextSpan
@@ -31,11 +33,23 @@ class PdfAdapter:
             raise NoTextLayerError("PDF contains no extractable text")
         return LayoutDoc(pages=pages, metadata=metadata)
 
-    def _read_metadata(self, document) -> dict[str, str]:
+    def _read_metadata(self, document: Any) -> dict[str, str]:
+        """Return the document's non-empty metadata entries.
+
+        ``document`` is a PyMuPDF ``Document``; there is no clean public type
+        to import for it, so it is typed ``Any``.
+        """
         raw = document.metadata or {}
         return {key: value for key, value in raw.items() if value}
 
-    def _read_page(self, page, number: int) -> Page:
+    def _read_page(self, page: Any, number: int) -> Page:
+        """Build a Page from one PyMuPDF page, with its lines in reading order.
+
+        ``page`` is a PyMuPDF ``Page``; there is no clean public type to
+        import for it, so it is typed ``Any``.
+        """
+        # get_text("dict") already reports span y-coordinates with a top-left
+        # origin, so no coordinate flip is needed here.
         page_dict = page.get_text("dict")
         lines: list[TextLine] = []
         for block in page_dict["blocks"]:
@@ -54,7 +68,13 @@ class PdfAdapter:
             lines=lines,
         )
 
-    def _read_line(self, raw_line: dict) -> TextLine:
+    def _read_line(self, raw_line: dict[str, Any]) -> TextLine:
+        """Turn one PyMuPDF line dict into a TextLine of non-blank spans.
+
+        ``raw_line`` is PyMuPDF's ``get_text("dict")`` line structure; there is
+        no clean public type to import for it, so it is typed as a str-keyed
+        dict of ``Any``.
+        """
         spans: list[TextSpan] = []
         for raw_span in raw_line["spans"]:
             text = raw_span["text"]
