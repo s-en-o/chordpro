@@ -29,7 +29,7 @@ _TITLE_SIZE_RATIO = 1.15
 # so a line containing two directives is not mis-parsed.
 _DIRECTIVE = re.compile(r"^\{(?P<key>[a-zA-Z_]+)\s*:\s*(?P<value>[^}]*)\}\s*$")
 
-# Keys that map to a song's title, most specific first.
+# Keys that map to a song's title. An explicit title/t wins over a subtitle.
 _TITLE_KEYS = ("title", "t")
 # Keys that map to a song's artist.
 _ARTIST_KEYS = ("artist", "composer", "author")
