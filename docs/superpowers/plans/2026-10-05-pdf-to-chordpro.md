@@ -935,7 +935,7 @@ def test_merge_inserts_chords_at_nearest_characters() -> None:
     lyric = LineLabel(make_line("Hello world", 14), "lyric")
     result = merge_chord_lyric(chord, lyric, QAReport())
     assert result.kind == "lyric"
-    assert result.text == "[C]Hello[G] world"
+    assert result.text == "[C]Hello [G]world"
 
 
 def test_merge_ignores_non_chord_tokens() -> None:
@@ -957,7 +957,7 @@ def test_align_page_pairs_chord_and_lyric() -> None:
     ]
     qa = QAReport()
     lines = align_page(labels, qa)
-    assert [line.text for line in lines] == ["[C]Hello[G] world", "[Am]"]
+    assert [line.text for line in lines] == ["[C]Hello [G]world", "[Am]"]
     assert qa.unpaired_chords == ["Am"]
 
 
@@ -1229,7 +1229,7 @@ def test_convert_layout_end_to_end() -> None:
         lines=[make_line("C     G", 0), make_line("Hello world", 14)],
     )
     song = convert_layout(LayoutDoc(pages=[page]))
-    assert song.lines[0].text == "[C]Hello[G] world"
+    assert song.lines[0].text == "[C]Hello [G]world"
 
 
 def test_convert_layout_spans_multiple_pages() -> None:
@@ -1348,7 +1348,7 @@ def test_convert_returns_chordpro_and_qa() -> None:
     )
     assert response.status_code == 200
     body = response.json()
-    assert "[C]Hello[G] world" in body["chordpro"]
+    assert "[C]Hello [G]world" in body["chordpro"]
     assert body["qa"]["unpaired_chords"] == []
 
 
