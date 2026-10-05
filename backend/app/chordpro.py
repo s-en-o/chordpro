@@ -3,7 +3,7 @@
 import re
 import statistics
 
-from app.ir import LayoutDoc
+from app.ir import NO_HEADING_KEY, LayoutDoc
 from app.models import Song
 
 # Songbook exports often append a site suffix and wrap the artist, e.g.
@@ -67,12 +67,13 @@ def guess_metadata(layout: LayoutDoc) -> dict[str, str]:
 
     Prefer the document's own metadata; otherwise fall back to the largest
     text on the first page, which is usually the title. Songbook-style titles
-    are cleaned so the site suffix is removed and the artist recovered.
+    are cleaned so the site suffix is removed and the artist recovered. Sources
+    that set ``NO_HEADING_KEY`` (e.g. pasted text) never get an inferred title.
     """
     metadata: dict[str, str] = {}
 
     raw_title = layout.metadata.get("title", "").strip()
-    if not raw_title:
+    if not raw_title and not layout.metadata.get(NO_HEADING_KEY):
         raw_title = _largest_text_first_page(layout)
 
     title, derived_artist = clean_title(raw_title) if raw_title else ("", "")

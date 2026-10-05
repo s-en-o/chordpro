@@ -76,6 +76,22 @@ def test_paste_chords_above_lyrics_get_aligned() -> None:
     assert song.lines[0].text == "[C]Hello [G]world"
 
 
-def test_paste_metadata_is_empty() -> None:
+def test_paste_suppresses_title_inference() -> None:
+    # The adapter marks the layout as having no heading, so guess_metadata
+    # never invents a title from the first line.
+    from app.chordpro import guess_metadata
+    from app.ir import NO_HEADING_KEY
+
     layout = PasteTextAdapter().to_layout(b"[C]Hello\n")
-    assert layout.metadata == {}
+    assert layout.metadata == {NO_HEADING_KEY: "true"}
+    assert guess_metadata(layout) == {}
+
+
+def test_single_line_paste_gets_no_invented_title() -> None:
+    song = convert_layout(PasteTextAdapter().to_layout(b"[C]Hello [G]world\n"))
+    assert "title" not in song.metadata
+
+
+def test_chord_only_line_paste_gets_no_invented_title() -> None:
+    song = convert_layout(PasteTextAdapter().to_layout(b"C     G\n"))
+    assert "title" not in song.metadata

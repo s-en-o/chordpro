@@ -7,7 +7,7 @@ chord/lyric alignment is driven by character positions relative to each other.
 """
 
 from app.adapters.base import NoTextLayerError
-from app.ir import LayoutDoc, Page, TextLine, TextSpan
+from app.ir import NO_HEADING_KEY, LayoutDoc, Page, TextLine, TextSpan
 
 # Size of one character cell in the synthetic grid. The absolute values do not
 # matter, only their consistency: alignment compares relative positions.
@@ -43,7 +43,8 @@ class PasteTextAdapter:
                     lines=lines,
                 )
             ],
-            metadata={},
+            # Pasted text has no heading to infer; never invent a title.
+            metadata={NO_HEADING_KEY: "true"},
         )
 
     def _normalize(self, text: str) -> str:
