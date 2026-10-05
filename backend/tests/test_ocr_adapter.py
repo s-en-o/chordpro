@@ -61,20 +61,23 @@ def test_ocr_adapter_groups_words_on_one_baseline_into_a_row() -> None:
 
 
 def test_ocr_adapter_keeps_rows_separate_with_mismatched_heights() -> None:
-    # A tall chord box directly above a shorter lyric box must stay two rows.
-    # With a "taller word wins" threshold these would merge.
+    # A tall chord box directly above a lyric row must stay a separate row.
+    # The grouping tolerance uses the page's median word height, so one tall
+    # chord box does not drag the lyric into its row.
     adapter = OcrAdapter()
     result = adapter._words_to_page_dict(
         [
-            (100.0, 38.0, 120.0, 60.0, "G", 0, 0, 0),  # height 22
+            (100.0, 38.0, 120.0, 60.0, "G", 0, 0, 0),  # tall chord, height 22
             (100.0, 52.0, 170.0, 66.0, "hello", 0, 0, 1),  # height 14
+            (180.0, 52.0, 240.0, 66.0, "there", 0, 0, 2),
+            (250.0, 52.0, 310.0, 66.0, "friend", 0, 0, 3),
         ]
     )
     texts = [
         "".join(span["text"] for span in block["lines"][0]["spans"]).strip()
         for block in result["blocks"]
     ]
-    assert texts == ["G", "hello"]
+    assert texts == ["G", "hello there friend"]
 
 
 def test_ocr_adapter_has_no_trailing_space_on_last_word() -> None:

@@ -93,10 +93,14 @@ class OcrAdapter(LayoutBuilder):
         Song sheets are overwhelmingly single-column, so this is acceptable for
         now. Each ``word`` tuple is ``(x0, y0, x1, y1, text, block, line, word_no)``.
         """
+        content_words = [word for word in words if word[4].strip()]
+        # A single page-wide reference height (the median word height) makes
+        # row grouping robust: a tiny punctuation box cannot split a row, and a
+        # tall chord box cannot merge with the lyric beneath it.
+        row_tolerance = 0.5 * self._median_word_height(content_words)
         rows: list[list[tuple]] = []
-        for word in words:
-            if word[4].strip():
-                self._add_word_to_row(rows, word)
+        for word in content_words:
+            self._add_word_to_row(rows, word, row_tolerance)
         blocks: list[dict[str, Any]] = []
         for row in rows:
             row.sort(key=lambda w: w[0])
@@ -130,20 +134,27 @@ class OcrAdapter(LayoutBuilder):
             )
         return {"blocks": blocks}
 
-    def _add_word_to_row(self, rows: list[list[tuple]], word: tuple) -> None:
+    def _median_word_height(self, words: list[tuple]) -> float:
+        """Return the median height of the page's words (0 when there are none)."""
+        if not words:
+            return 0.0
+        heights = sorted(word[3] - word[1] for word in words)
+        return heights[len(heights) // 2]
+
+    def _add_word_to_row(
+        self, rows: list[list[tuple]], word: tuple, row_tolerance: float
+    ) -> None:
         """Append a word to a row sharing its baseline, creating one if needed.
 
-        Words group when their vertical centres are within half the *smaller*
-        word's height. Using the smaller height (not the taller) keeps a chord
-        row and the lyric row directly beneath it separate even when OCR gives
-        them different box heights.
+        A word joins a row when their vertical centres are within
+        ``row_tolerance``. The tolerance comes from the page's median word
+        height, so grouping does not depend on any single (possibly tiny or
+        tall) word's box.
         """
         y_center = (word[1] + word[3]) / 2
-        height = word[3] - word[1]
         for row in rows:
             row_center = sum((w[1] + w[3]) / 2 for w in row) / len(row)
-            row_height = min(w[3] - w[1] for w in row)
-            if abs(row_center - y_center) <= 0.5 * min(height, row_height):
+            if abs(row_center - y_center) <= row_tolerance:
                 row.append(word)
                 return
         rows.append([word])

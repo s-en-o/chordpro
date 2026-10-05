@@ -91,6 +91,24 @@ def make_image_only_pdf() -> bytes:
     return data
 
 
+def test_convert_reports_ocr_unavailable_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
+    # If OCR is needed but the engine is missing, the API returns a clear 400
+    # (not a 500). We fake the adapter raising, so no Tesseract is required.
+    from app.adapters import ocr as ocr_module
+    from app.adapters.base import OcrUnavailableError
+
+    def raise_unavailable(self: object, data: bytes) -> object:
+        raise OcrUnavailableError("OCR unavailable (is Tesseract installed?)")
+
+    monkeypatch.setattr(ocr_module.OcrAdapter, "to_layout", raise_unavailable)
+    response = client.post(
+        "/api/convert",
+        files={"file": ("blank.pdf", make_blank_pdf(), "application/pdf")},
+    )
+    assert response.status_code == 400
+    assert "OCR is unavailable" in response.json()["error"]
+
+
 @pytest.mark.skipif(not tesseract_available, reason="Tesseract not installed")
 def test_convert_falls_back_to_ocr_for_image_pdf() -> None:
     response = client.post(
