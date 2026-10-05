@@ -220,17 +220,24 @@ class PdfAdapter:
         self,
         blocks: list[tuple[tuple[float, float, float, float], list[TextLine]]],
     ) -> list[TextLine]:
-        """Sort blocks top-to-bottom, then their lines top-to-bottom, left-to-right."""
-        lines: list[TextLine] = []
-        for _, block_lines in sorted(blocks, key=lambda item: (item[0][1], item[0][0])):
-            # Sorting lines by (y0, x0) keeps chords that share one baseline in
-            # left-to-right order instead of an arbitrary order.
-            for line in sorted(
-                block_lines,
-                key=lambda line: (line.y0, self._line_left_edge(line)),
-            ):
-                lines.append(line)
-        return lines
+        """Return every line across the blocks in true reading order.
+
+        Lines are sorted by (y0, x0) across all blocks, not block-by-block. A
+        block's top edge can sit above a line that actually belongs to another
+        block on nearly the same baseline (a decoration block above a chord
+        row), so sorting whole blocks first would mis-order those lines.
+        Sorting all lines by (y0, x0) keeps chords that share one baseline in
+        left-to-right order and puts each chord next to its lyric. Block
+        contiguity is intentionally not preserved: when two blocks overlap in
+        y within the same column, their lines interleave by baseline.
+        """
+        all_lines: list[TextLine] = []
+        for _, block_lines in blocks:
+            all_lines.extend(block_lines)
+        return sorted(
+            all_lines,
+            key=lambda line: (line.y0, self._line_left_edge(line)),
+        )
 
     def _line_left_edge(self, line: TextLine) -> float:
         """Return the leftmost x-coordinate touched by a line's spans."""
