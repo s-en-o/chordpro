@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
+from app.adapters.ocr import OcrAdapter
 from app.adapters.pdf import NoTextLayerError, PdfAdapter
 from app.chordpro import serialize
 from app.pipeline import convert_layout
@@ -27,17 +28,29 @@ async def convert(file: UploadFile = File(...)) -> JSONResponse:
     if len(data) > MAX_UPLOAD_BYTES:
         return JSONResponse(status_code=413, content={"error": "file too large"})
 
+    used_ocr = False
     try:
         layout = await run_in_threadpool(PdfAdapter().to_layout, data)
     except NoTextLayerError:
-        return JSONResponse(
-            status_code=400, content={"error": "not a text-based PDF"}
-        )
+        # No text layer (scanned or vector-outlined page): fall back to OCR.
+        try:
+            layout = await run_in_threadpool(OcrAdapter().to_layout, data)
+            used_ocr = True
+        except NoTextLayerError:
+            return JSONResponse(
+                status_code=400, content={"error": "not a text-based PDF"}
+            )
 
     song = await run_in_threadpool(convert_layout, layout)
+    qa = asdict(song.qa)
+    if used_ocr:
+        qa["notes"].append(
+            "No text layer found; this file was read with OCR. "
+            "Please review the result carefully."
+        )
     return JSONResponse(
         status_code=200,
-        content={"chordpro": serialize(song), "qa": asdict(song.qa)},
+        content={"chordpro": serialize(song), "qa": qa},
     )
 
 

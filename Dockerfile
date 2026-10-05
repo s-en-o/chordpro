@@ -8,6 +8,11 @@ RUN npm run build
 
 # --- Stage 2: run the backend ---
 FROM python:3.12-slim
+# Tesseract is the OCR engine for PDFs with no text layer (scanned or
+# vector-outlined pages). tesseract-ocr-eng provides the English model.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock ./

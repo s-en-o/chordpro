@@ -1,5 +1,7 @@
 from io import BytesIO
 
+import pymupdf
+import pytest
 from fastapi.testclient import TestClient
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -7,6 +9,8 @@ from reportlab.pdfgen import canvas
 from app.api import app
 
 client = TestClient(app)
+
+tesseract_available = pymupdf.get_tessdata() is not None
 
 
 def make_text_pdf() -> bytes:
@@ -65,3 +69,33 @@ def test_convert_rejects_oversized_file() -> None:
     )
     assert response.status_code == 413
     assert response.json()["error"] == "file too large"
+
+
+def make_image_only_pdf() -> bytes:
+    """A PDF whose only content is an image of text (no text layer)."""
+    source = pymupdf.open()
+    page = source.new_page(width=320, height=120)
+    page.insert_text((20, 70), "Hello chord", fontsize=24)
+    pixmap = page.get_pixmap(dpi=150)
+    image_bytes = pixmap.tobytes("png")
+    source.close()
+
+    out = pymupdf.open()
+    out_page = out.new_page(width=320, height=120)
+    out_page.insert_image(out_page.rect, stream=image_bytes)
+    data = out.tobytes()
+    out.close()
+    return data
+
+
+@pytest.mark.skipif(not tesseract_available, reason="Tesseract not installed")
+def test_convert_falls_back_to_ocr_for_image_pdf() -> None:
+    response = client.post(
+        "/api/convert",
+        files={"file": ("scan.pdf", make_image_only_pdf(), "application/pdf")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "Hello" in body["chordpro"]
+    # The QA report tells the user OCR was used.
+    assert any("OCR" in note for note in body["qa"]["notes"])
