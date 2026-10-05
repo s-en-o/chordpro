@@ -7,10 +7,26 @@ Convert text-based PDF song sheets (chords above lyrics) into
 
 ```
 PDF ─► PdfAdapter ─► LayoutDoc (IR) ─► classify ─► align ─► Song ─► ChordPro
+          │ no text layer
+          ▼
+      OcrAdapter ──────► LayoutDoc (IR)
 ```
 
 The conversion engine only knows the `LayoutDoc` IR, so future input sources
 (pasted text, screenshots) can be added by writing a new adapter.
+
+### OCR fallback
+
+PDFs with no text layer — scans, or pages whose text was saved as vector
+outlines — are detected automatically and re-read with OCR. This requires the
+**Tesseract** engine on the system:
+
+- macOS: `brew install tesseract`
+- Debian/Ubuntu: `apt-get install tesseract-ocr tesseract-ocr-eng`
+
+The Docker image installs it already. OCR output is less reliable than a text
+layer (chords especially), so the QA report adds a note whenever OCR was used,
+and the review-and-edit UI is where you correct mistakes.
 
 ## Python for a TS engineer
 
@@ -66,7 +82,9 @@ Then open `http://localhost:8000`.
 
 ## Limitations (by design)
 
-- Only text-based (digital) PDFs. Scanned images without a text layer are
-  rejected with HTTP 400.
+- PDF only (no direct image upload). PDFs without a text layer are OCR'd when
+  Tesseract is installed; if OCR also finds nothing, the request is rejected
+  with HTTP 400.
+- OCR accuracy on small chord text is limited; use the edit UI.
 - Metadata (title/artist) is best-effort.
-- Pasted-text and screenshot inputs are planned but not yet implemented.
+- Pasted-text and direct screenshot inputs are planned but not yet implemented.

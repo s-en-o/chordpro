@@ -9,6 +9,14 @@ from typing import Protocol
 from app.ir import LayoutDoc
 
 
+class NoTextLayerError(Exception):
+    """Raised when an input cannot yield any text through normal extraction."""
+
+
+class OcrUnavailableError(Exception):
+    """Raised when OCR is needed but the OCR engine is not available."""
+
+
 class SourceAdapter(Protocol):
     """Turns raw input bytes into the shared LayoutDoc IR."""
 

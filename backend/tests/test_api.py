@@ -1,5 +1,8 @@
+import shutil
 from io import BytesIO
 
+import pymupdf
+import pytest
 from fastapi.testclient import TestClient
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -7,6 +10,9 @@ from reportlab.pdfgen import canvas
 from app.api import app
 
 client = TestClient(app)
+
+# get_tessdata() raises when Tesseract is absent, so check the binary instead.
+tesseract_available = shutil.which("tesseract") is not None
 
 
 def make_text_pdf() -> bytes:
@@ -40,6 +46,7 @@ def test_convert_returns_chordpro_and_qa() -> None:
     assert body["qa"]["unpaired_chords"] == []
 
 
+@pytest.mark.skipif(not tesseract_available, reason="Tesseract not installed")
 def test_convert_rejects_pdf_without_text() -> None:
     response = client.post(
         "/api/convert",
@@ -65,3 +72,51 @@ def test_convert_rejects_oversized_file() -> None:
     )
     assert response.status_code == 413
     assert response.json()["error"] == "file too large"
+
+
+def make_image_only_pdf() -> bytes:
+    """A PDF whose only content is an image of text (no text layer)."""
+    source = pymupdf.open()
+    page = source.new_page(width=320, height=120)
+    page.insert_text((20, 70), "Hello chord", fontsize=24)
+    pixmap = page.get_pixmap(dpi=150)
+    image_bytes = pixmap.tobytes("png")
+    source.close()
+
+    out = pymupdf.open()
+    out_page = out.new_page(width=320, height=120)
+    out_page.insert_image(out_page.rect, stream=image_bytes)
+    data = out.tobytes()
+    out.close()
+    return data
+
+
+def test_convert_reports_ocr_unavailable_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
+    # If OCR is needed but the engine is missing, the API returns a clear 400
+    # (not a 500). We fake the adapter raising, so no Tesseract is required.
+    from app.adapters import ocr as ocr_module
+    from app.adapters.base import OcrUnavailableError
+
+    def raise_unavailable(self: object, data: bytes) -> object:
+        raise OcrUnavailableError("OCR unavailable (is Tesseract installed?)")
+
+    monkeypatch.setattr(ocr_module.OcrAdapter, "to_layout", raise_unavailable)
+    response = client.post(
+        "/api/convert",
+        files={"file": ("blank.pdf", make_blank_pdf(), "application/pdf")},
+    )
+    assert response.status_code == 400
+    assert "OCR is unavailable" in response.json()["error"]
+
+
+@pytest.mark.skipif(not tesseract_available, reason="Tesseract not installed")
+def test_convert_falls_back_to_ocr_for_image_pdf() -> None:
+    response = client.post(
+        "/api/convert",
+        files={"file": ("scan.pdf", make_image_only_pdf(), "application/pdf")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "Hello" in body["chordpro"]
+    # The QA report tells the user OCR was used.
+    assert any("OCR" in note for note in body["qa"]["notes"])
