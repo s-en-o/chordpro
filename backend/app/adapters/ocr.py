@@ -85,11 +85,13 @@ class OcrAdapter(LayoutBuilder):
 
         PyMuPDF's OCR output fragments each visual row into many one-word
         "lines". We re-group words that share a baseline into a single row, then
-        present each row as one block/line so the shared reading-order logic can
-        handle them. Every word becomes its own span, keeping its own box, so
-        chord/lyric alignment stays accurate.
+        present each row as one block/line. Every word becomes its own span,
+        keeping its own box, so chord/lyric alignment stays accurate.
 
-        Each ``word`` tuple is ``(x0, y0, x1, y1, text, block, line, word_no)``.
+        Limitation: each row is emitted as one full-width block, so the
+        two-column reading logic cannot separate columns on an OCR'd page.
+        Song sheets are overwhelmingly single-column, so this is acceptable for
+        now. Each ``word`` tuple is ``(x0, y0, x1, y1, text, block, line, word_no)``.
         """
         rows: list[list[tuple]] = []
         for word in words:
