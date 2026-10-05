@@ -10,7 +10,7 @@ from app.ir import LayoutDoc
 
 
 class NoTextLayerError(Exception):
-    """Raised when an input cannot yield any text (also used by the text adapter)."""
+    """Raised when an input cannot yield any text through normal extraction."""
 
 
 class OcrUnavailableError(Exception):

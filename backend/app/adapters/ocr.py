@@ -6,7 +6,8 @@ rasterizes each page and runs OCR on it, producing the same LayoutDoc IR.
 
 It relies on Tesseract being installed on the system (PyMuPDF calls it
 through its OCR support). If no text page is produced, ``NoTextLayerError``
-is raised so the API can report a clear failure.
+is raised; if Tesseract is missing or unusable, ``OcrUnavailableError`` is
+raised. Either way the API can report a clear failure.
 """
 
 from typing import Any
