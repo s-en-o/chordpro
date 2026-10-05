@@ -90,7 +90,12 @@ def classify_page(
     median_height = _median_line_height(page)
     max_gap = gap_factor * median_height
 
-    for index, label in enumerate(labels):
+    # Walk bottom-up so a chord line can tell whether the line below it is a
+    # lyric OR another valid chord (a chord stack). A candidate stays a real
+    # "chord" only if that line below is a lyric or a valid chord within the
+    # gap; otherwise it becomes a chord-only line.
+    for index in range(len(labels) - 1, -1, -1):
+        label = labels[index]
         if label.kind != "chord":
             continue
         if index + 1 >= len(labels):
@@ -98,7 +103,7 @@ def classify_page(
             continue
         below = labels[index + 1]
         vertical_gap = below.line.y0 - label.line.y1
-        if below.kind != "lyric" or vertical_gap > max_gap:
+        if vertical_gap > max_gap or below.kind not in ("lyric", "chord"):
             label.kind = "chord_only"
 
     return labels

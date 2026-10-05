@@ -17,21 +17,40 @@ def merge_chord_lyric(
     qa: QAReport,
 ) -> SongLine:
     """Insert ``[chord]`` markers into a lyric line at the nearest characters."""
+    return merge_chord_lines([chord_label], lyric_label, qa)
+
+
+def merge_chord_lines(
+    chord_labels: list[LineLabel],
+    lyric_label: LineLabel,
+    qa: QAReport,
+) -> SongLine:
+    """Merge one or more stacked chord lines into a single lyric line."""
     lyric_text = lyric_label.line.text
     lyric_centers = char_x_centers(lyric_label.line)
 
-    insertions: list[tuple[int, str]] = []
-    for token, x_center in token_positions(chord_label.line):
-        if not is_chord(token):
-            continue
-        index = nearest_char_index(lyric_centers, x_center)
-        insertions.append((index, f"[{token}]"))
+    # Bucket chord markers by the character index they are inserted before.
+    # Index len(lyric_text) means "append after the whole lyric", used for
+    # chords that sit beyond the end of the lyric.
+    buckets: dict[int, list[str]] = {}
+    # Walk the stack top-to-bottom so, when two chords land on the same
+    # character, the one from the higher line appears first (leftmost).
+    for chord_label in chord_labels:
+        for token, x_center in token_positions(chord_label.line):
+            if not is_chord(token):
+                continue
+            if lyric_centers and x_center > lyric_centers[-1]:
+                index = len(lyric_text)
+            else:
+                index = nearest_char_index(lyric_centers, x_center)
+            buckets.setdefault(index, []).append(f"[{token}]")
 
-    # Insert from right to left so earlier indices stay valid.
-    insertions.sort(key=lambda item: item[0], reverse=True)
-    result = lyric_text
-    for index, chord_text in insertions:
-        result = result[:index] + chord_text + result[index:]
+    # Rebuild the line left-to-right, emitting each character's chords first.
+    result = ""
+    for position in range(len(lyric_text) + 1):
+        result += "".join(buckets.get(position, []))
+        if position < len(lyric_text):
+            result += lyric_text[position]
     return SongLine(kind="lyric", text=result)
 
 
@@ -48,10 +67,14 @@ def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
     while index < len(labels):
         label = labels[index]
         if label.kind == "chord":
-            # classify_page guarantees the next line is a lyric.
-            next_label = labels[index + 1]
-            song_lines.append(merge_chord_lyric(label, next_label, qa))
-            index += 2
+            # Collect the whole run of stacked chord lines. classify_page
+            # guarantees the run ends at a lyric line.
+            chord_labels: list[LineLabel] = []
+            while index < len(labels) and labels[index].kind == "chord":
+                chord_labels.append(labels[index])
+                index += 1
+            song_lines.append(merge_chord_lines(chord_labels, labels[index], qa))
+            index += 1
         elif label.kind == "chord_only":
             song_lines.append(
                 SongLine(kind="chord_only", text=chord_only_text(label.line))

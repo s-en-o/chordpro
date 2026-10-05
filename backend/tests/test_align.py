@@ -1,4 +1,9 @@
-from app.align import align_page, chord_only_text, merge_chord_lyric
+from app.align import (
+    align_page,
+    chord_only_text,
+    merge_chord_lines,
+    merge_chord_lyric,
+)
 from app.classify import LineLabel
 from app.ir import TextLine, TextSpan
 from app.models import QAReport
@@ -55,3 +60,29 @@ def test_align_page_passes_plain_lyric_through() -> None:
     lines = align_page(labels, QAReport())
     assert lines[0].text == "just a lyric"
     assert lines[0].kind == "lyric"
+
+
+def test_merge_appends_chords_beyond_end_of_lyric() -> None:
+    chord = LineLabel(make_line("C          G", 0), "chord")
+    lyric = LineLabel(make_line("ab", 14), "lyric")
+    result = merge_chord_lines([chord], lyric, QAReport())
+    assert result.text == "[C]ab[G]"
+
+
+def test_merge_stacks_multiple_chord_lines() -> None:
+    top = LineLabel(make_line("C", 0), "chord")
+    bottom = LineLabel(make_line("G", 14), "chord")
+    lyric = LineLabel(make_line("ab", 28), "lyric")
+    result = merge_chord_lines([top, bottom], lyric, QAReport())
+    assert result.text == "[C][G]ab"
+
+
+def test_align_page_merges_stacked_chords() -> None:
+    labels = [
+        LineLabel(make_line("C", 0), "chord"),
+        LineLabel(make_line("G", 14), "chord"),
+        LineLabel(make_line("ab", 28), "lyric"),
+    ]
+    lines = align_page(labels, QAReport())
+    assert len(lines) == 1
+    assert lines[0].text == "[C][G]ab"

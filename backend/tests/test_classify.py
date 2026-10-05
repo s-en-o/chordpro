@@ -50,3 +50,14 @@ def test_classify_marks_lonely_chord_as_chord_only() -> None:
     )
     labels = classify_page(page)
     assert [label.kind for label in labels] == ["chord_only"]
+
+
+def test_classify_keeps_stacked_chord_lines() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C", 0), make_line("G", 14), make_line("ab", 28)],
+    )
+    labels = classify_page(page)
+    assert [label.kind for label in labels] == ["chord", "chord", "lyric"]
