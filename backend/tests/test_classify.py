@@ -52,6 +52,17 @@ def test_classify_marks_lonely_chord_as_chord_only() -> None:
     assert [label.kind for label in labels] == ["chord_only"]
 
 
+def test_classify_treats_blank_between_chord_and_lyric_as_transparent() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C     G", 0), make_line("", 14), make_line("Hello world", 28)],
+    )
+    labels = classify_page(page)
+    assert [label.kind for label in labels] == ["chord", "blank", "lyric"]
+
+
 def test_classify_keeps_stacked_chord_lines() -> None:
     page = Page(
         number=1,

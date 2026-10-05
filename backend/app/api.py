@@ -1,9 +1,12 @@
 """FastAPI application exposing the PDF-to-ChordPro conversion endpoint."""
 
 from dataclasses import asdict
+from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from app.adapters.pdf import NoTextLayerError, PdfAdapter
 from app.chordpro import serialize
@@ -17,27 +20,26 @@ app = FastAPI(title="ChordPro Converter")
 @app.post("/api/convert")
 async def convert(file: UploadFile = File(...)) -> JSONResponse:
     """Convert an uploaded PDF into ChordPro text plus a QA report."""
+    if file.size is not None and file.size > MAX_UPLOAD_BYTES:
+        return JSONResponse(status_code=413, content={"error": "file too large"})
+
     data = await file.read()
     if len(data) > MAX_UPLOAD_BYTES:
         return JSONResponse(status_code=413, content={"error": "file too large"})
 
     try:
-        layout = PdfAdapter().to_layout(data)
+        layout = await run_in_threadpool(PdfAdapter().to_layout, data)
     except NoTextLayerError:
         return JSONResponse(
             status_code=400, content={"error": "not a text-based PDF"}
         )
 
-    song = convert_layout(layout)
+    song = await run_in_threadpool(convert_layout, layout)
     return JSONResponse(
         status_code=200,
         content={"chordpro": serialize(song), "qa": asdict(song.qa)},
     )
 
-
-from pathlib import Path
-
-from fastapi.staticfiles import StaticFiles
 
 # In the Docker image the built frontend is copied to /app/frontend_dist.
 # Locally, this path simply won't exist, so we only mount it when present.

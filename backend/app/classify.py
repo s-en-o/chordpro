@@ -58,6 +58,24 @@ def chord_ratio(line: TextLine) -> float:
     return chord_count / len(tokens)
 
 
+def low_confidence_line_indices(
+    page: Page,
+    chord_threshold: float = DEFAULT_CHORD_THRESHOLD,
+) -> list[int]:
+    """Return indices of ambiguous lines: some chord tokens, but below threshold.
+
+    A line with a chord ratio strictly between 0 and the threshold might be a
+    chord line we mislabeled as a lyric (or a lyric containing a word that looks
+    like a chord). We surface these so the user can review them.
+    """
+    result: list[int] = []
+    for index, line in enumerate(page.lines):
+        ratio = chord_ratio(line)
+        if 0.0 < ratio < chord_threshold:
+            result.append(index)
+    return result
+
+
 def _median_line_height(page: Page) -> float:
     """Return the median height of non-empty lines, used to scale the gap test."""
     heights = sorted(line.height for line in page.lines if line.height > 0)
@@ -98,10 +116,13 @@ def classify_page(
         label = labels[index]
         if label.kind != "chord":
             continue
-        if index + 1 >= len(labels):
+        below_index = index + 1
+        while below_index < len(labels) and labels[below_index].kind == "blank":
+            below_index += 1
+        if below_index >= len(labels):
             label.kind = "chord_only"
             continue
-        below = labels[index + 1]
+        below = labels[below_index]
         vertical_gap = below.line.y0 - label.line.y1
         if vertical_gap > max_gap or below.kind not in ("lyric", "chord"):
             label.kind = "chord_only"

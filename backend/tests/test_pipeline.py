@@ -20,6 +20,19 @@ def test_convert_layout_end_to_end() -> None:
     assert song.lines[0].text == "[C]Hello [G]world"
 
 
+def test_convert_layout_records_low_confidence_lines() -> None:
+    # "C" alone is a chord (ratio 1.0), but "C x y" is 0.333 -- a line that is
+    # partly chord-like and falls strictly below the 0.5 threshold.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C x y", 0), make_line("lyric line", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert song.qa.low_confidence_lines == [0]
+
+
 def test_convert_layout_spans_multiple_pages() -> None:
     page1 = Page(
         number=1,

@@ -42,8 +42,10 @@ export default function App() {
     const link = document.createElement("a");
     link.href = url;
     link.download = (file?.name.replace(/\.pdf$/i, "") ?? "song") + ".cho";
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   return (
@@ -53,7 +55,12 @@ export default function App() {
       <input
         type="file"
         accept="application/pdf"
-        onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+        onChange={(event) => {
+          setFile(event.target.files?.[0] ?? null);
+          setChordpro("");
+          setQa(null);
+          setError("");
+        }}
       />
       <button onClick={handleConvert} disabled={!file || busy}>
         {busy ? "Converting…" : "Convert"}
@@ -88,6 +95,12 @@ export default function App() {
       {qa && qa.unpaired_chords.length > 0 && (
         <p className="warning">
           Unpaired chords: {qa.unpaired_chords.join(", ")}
+        </p>
+      )}
+
+      {qa && qa.low_confidence_lines.length > 0 && (
+        <p className="warning">
+          Low-confidence lines: {qa.low_confidence_lines.join(", ")}
         </p>
       )}
     </main>

@@ -73,8 +73,16 @@ def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
             while index < len(labels) and labels[index].kind == "chord":
                 chord_labels.append(labels[index])
                 index += 1
+            # Skip any blank lines between the chord stack and its lyric.
+            blank_labels: list[LineLabel] = []
+            while index < len(labels) and labels[index].kind == "blank":
+                blank_labels.append(labels[index])
+                index += 1
+            # classify_page guarantees the run ends at a lyric (possibly across blanks).
             song_lines.append(merge_chord_lines(chord_labels, labels[index], qa))
             index += 1
+            for _ in blank_labels:
+                song_lines.append(SongLine(kind="blank", text=""))
         elif label.kind == "chord_only":
             song_lines.append(
                 SongLine(kind="chord_only", text=chord_only_text(label.line))

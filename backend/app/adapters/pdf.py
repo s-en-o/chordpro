@@ -19,7 +19,10 @@ class PdfAdapter:
 
     def to_layout(self, data: bytes) -> LayoutDoc:
         """Convert PDF ``data`` into a LayoutDoc."""
-        document = fitz.open(stream=data, filetype="pdf")
+        try:
+            document = fitz.open(stream=data, filetype="pdf")
+        except Exception as error:  # PyMuPDF raises FileDataError for unparseable bytes
+            raise NoTextLayerError("could not read PDF") from error
         try:
             pages = [
                 self._read_page(page, index + 1)

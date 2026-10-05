@@ -62,6 +62,16 @@ def test_align_page_passes_plain_lyric_through() -> None:
     assert lines[0].kind == "lyric"
 
 
+def test_align_page_pairs_across_blank_line() -> None:
+    labels = [
+        LineLabel(make_line("C", 0), "chord"),
+        LineLabel(make_line("", 14), "blank"),
+        LineLabel(make_line("ab", 28), "lyric"),
+    ]
+    lines = align_page(labels, QAReport())
+    assert [line.text for line in lines] == ["[C]ab", ""]
+
+
 def test_merge_appends_chords_beyond_end_of_lyric() -> None:
     chord = LineLabel(make_line("C          G", 0), "chord")
     lyric = LineLabel(make_line("ab", 14), "lyric")

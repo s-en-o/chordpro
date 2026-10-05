@@ -49,6 +49,15 @@ def test_convert_rejects_pdf_without_text() -> None:
     assert response.json()["error"] == "not a text-based PDF"
 
 
+def test_convert_rejects_non_pdf_bytes() -> None:
+    response = client.post(
+        "/api/convert",
+        files={"file": ("not.pdf", b"this is not a pdf", "application/pdf")},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "not a text-based PDF"
+
+
 def test_convert_rejects_oversized_file() -> None:
     response = client.post(
         "/api/convert",
