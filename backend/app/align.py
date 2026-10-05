@@ -100,9 +100,11 @@ def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
             # check anyway so this public function cannot IndexError on
             # hand-built labels.
             chord_labels, trailing_blanks, index = _collect_chord_stack(labels, index)
-            if index >= len(labels):
-                # Defensive: a stack with no lyric beneath it. Emit each chord
-                # line on its own and record the chords as unpaired.
+            if index >= len(labels) or labels[index].kind != "lyric":
+                # Defensive: the stack has no lyric beneath it (either it runs
+                # off the page, or a hand-built caller ended it early). Emit
+                # each chord line on its own and record the chords as unpaired.
+                # Interior blanks are dropped, matching the paired path.
                 for chord_label in chord_labels:
                     song_lines.append(
                         SongLine(kind="chord_only", text=chord_only_text(chord_label.line))

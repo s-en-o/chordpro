@@ -99,6 +99,19 @@ def test_align_page_handles_chord_stack_with_no_lyric() -> None:
     assert qa.unpaired_chords == ["C", "G"]
 
 
+def test_align_page_handles_chord_stack_above_chord_only() -> None:
+    # Defensive: a stack terminated by a chord_only line (not a lyric) must not
+    # be merged into that line's text.
+    labels = [
+        LineLabel(make_line("C", 0), "chord"),
+        LineLabel(make_line("G", 14), "chord_only"),
+    ]
+    qa = QAReport()
+    lines = align_page(labels, qa)
+    assert [line.text for line in lines] == ["[C]", "[G]"]
+    assert qa.unpaired_chords == ["C", "G"]
+
+
 def test_align_page_keeps_blank_after_chord_lyric_pair() -> None:
     # A blank line AFTER a chord/lyric pair is a real separator and stays.
     labels = [
