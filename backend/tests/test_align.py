@@ -72,6 +72,58 @@ def test_align_page_pairs_across_blank_line() -> None:
     assert [line.text for line in lines] == ["[C]ab", ""]
 
 
+def test_align_page_folds_blanks_between_stacked_chords() -> None:
+    # A blank line BETWEEN two stacked chord lines must not split the stack:
+    # both chords belong to the lyric below, and the interior blank is dropped.
+    labels = [
+        LineLabel(make_line("C", 0), "chord"),
+        LineLabel(make_line("", 14), "blank"),
+        LineLabel(make_line("G", 28), "chord"),
+        LineLabel(make_line("hello world", 42), "lyric"),
+    ]
+    lines = align_page(labels, QAReport())
+    assert [line.text for line in lines] == ["[C][G]hello world"]
+
+
+def test_align_page_handles_chord_stack_with_no_lyric() -> None:
+    # Defensive path: classify_page normally prevents a trailing chord, but
+    # align_page must not crash on hand-built input.
+    labels = [
+        LineLabel(make_line("C", 0), "chord"),
+        LineLabel(make_line("", 14), "blank"),
+        LineLabel(make_line("G", 28), "chord"),
+    ]
+    qa = QAReport()
+    lines = align_page(labels, qa)
+    assert [line.text for line in lines] == ["[C]", "[G]"]
+    assert qa.unpaired_chords == ["C", "G"]
+
+
+def test_align_page_handles_chord_stack_above_chord_only() -> None:
+    # Defensive: a stack terminated by a chord_only line (not a lyric) must not
+    # be merged into that line's text.
+    labels = [
+        LineLabel(make_line("C", 0), "chord"),
+        LineLabel(make_line("G", 14), "chord_only"),
+    ]
+    qa = QAReport()
+    lines = align_page(labels, qa)
+    assert [line.text for line in lines] == ["[C]", "[G]"]
+    assert qa.unpaired_chords == ["C", "G"]
+
+
+def test_align_page_keeps_blank_after_chord_lyric_pair() -> None:
+    # A blank line AFTER a chord/lyric pair is a real separator and stays.
+    labels = [
+        LineLabel(make_line("C", 0), "chord"),
+        LineLabel(make_line("ab", 14), "lyric"),
+        LineLabel(make_line("", 28), "blank"),
+        LineLabel(make_line("cd", 42), "lyric"),
+    ]
+    lines = align_page(labels, QAReport())
+    assert [line.text for line in lines] == ["[C]ab", "", "cd"]
+
+
 def test_merge_appends_chords_beyond_end_of_lyric() -> None:
     chord = LineLabel(make_line("C          G", 0), "chord")
     lyric = LineLabel(make_line("ab", 14), "lyric")

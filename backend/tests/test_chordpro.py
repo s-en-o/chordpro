@@ -1,4 +1,4 @@
-from app.chordpro import guess_metadata, serialize
+from app.chordpro import clean_title, guess_metadata, serialize
 from app.ir import LayoutDoc, Page, TextLine, TextSpan
 from app.models import Song, SongLine
 
@@ -37,3 +37,58 @@ def test_guess_metadata_falls_back_to_largest_text() -> None:
     )
     layout = LayoutDoc(pages=[page])
     assert guess_metadata(layout) == {"title": "Big Title"}
+
+
+def test_clean_title_extracts_title_and_artist() -> None:
+    raw = "Take Me Home Country Roads Chords by John Denvertabs @ Ultimate Guitar Archive"
+    assert clean_title(raw) == ("Take Me Home Country Roads", "John Denver")
+
+
+def test_clean_title_strips_version_marker() -> None:
+    raw = "Sloop John B Chords (ver 3) by The Beach Boystabs @ Ultimate Guitar Archive"
+    assert clean_title(raw) == ("Sloop John B", "The Beach Boys")
+
+
+def test_clean_title_splits_on_last_by() -> None:
+    # The song title itself contains "By"; the artist boundary is the LAST "by".
+    assert clean_title("Stand By Me Chords by Ben E. King") == (
+        "Stand By Me",
+        "Ben E. King",
+    )
+
+
+def test_clean_title_leaves_plain_title_alone() -> None:
+    assert clean_title("Amazing Grace") == ("Amazing Grace", "")
+
+
+def test_clean_title_strips_chords_without_artist() -> None:
+    assert clean_title("Kansas City Chords") == ("Kansas City", "")
+
+
+def test_clean_title_handles_empty_and_bare_chords_by() -> None:
+    assert clean_title("") == ("", "")
+    assert clean_title("Chords by Someone") == ("Chords by Someone", "")
+
+
+def test_clean_title_strips_multiple_version_markers() -> None:
+    raw = "Sloop John B (ver 3) Chords (ver 2) by The Beach Boystabs @ Ultimate Guitar Archive"
+    assert clean_title(raw) == ("Sloop John B", "The Beach Boys")
+
+
+def test_guess_metadata_cleans_ultimate_guitar_title() -> None:
+    layout = LayoutDoc(
+        metadata={
+            "title": "Kansas City Chords by Wilbert Harrisontabs @ Ultimate Guitar Archive"
+        }
+    )
+    assert guess_metadata(layout) == {"title": "Kansas City", "artist": "Wilbert Harrison"}
+
+
+def test_guess_metadata_keeps_document_artist_when_present() -> None:
+    layout = LayoutDoc(
+        metadata={
+            "title": "Comes A Time Chords by Neil Youngtabs @ Ultimate Guitar Archive",
+            "author": "Neil Young",
+        }
+    )
+    assert guess_metadata(layout) == {"title": "Comes A Time", "artist": "Neil Young"}

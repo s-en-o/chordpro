@@ -20,8 +20,31 @@ def test_is_chord_accepts_common_chords() -> None:
         assert is_chord(token), token
 
 
+def test_is_chord_accepts_altered_and_extended_chords() -> None:
+    # Half-diminished and altered-tension chords seen in real songbooks.
+    for token in ["Bm7b5", "C#m7b5", "E7b9", "G7#11", "D7#9", "F7b13", "C7no5"]:
+        assert is_chord(token), token
+
+
+def test_is_chord_tolerates_trailing_punctuation() -> None:
+    # Chords in running text can carry a trailing comma or period.
+    for token in ["B7,", "C.", "Am7;", "G7:"]:
+        assert is_chord(token), token
+
+
 def test_is_chord_rejects_words() -> None:
-    for token in ["Hello", "world", "the", "grace"]:
+    for token in [
+        "Hello",
+        "world",
+        "the",
+        "grace",
+        "And",
+        "Chords",
+        "But",
+        "City",
+        "Cry",
+        "Dad",
+    ]:
         assert not is_chord(token), token
 
 

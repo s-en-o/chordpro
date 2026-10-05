@@ -12,20 +12,23 @@ from typing import Literal
 from app.ir import Page, TextLine
 
 # A permissive chord grammar: root note, optional accidental, optional
-# quality/extension, optional slash bass. Kept as a module constant so it can
-# be tuned or exposed as configuration later.
+# quality/extension, optional altered tensions, optional slash bass. Kept as a
+# module constant so it can be tuned or exposed as configuration later.
 CHORD_REGEX = re.compile(
     r"""
     \A
     [A-G]                                     # root note A..G
     (?:\#|b)?                                 # optional sharp or flat
     (?:maj|min|m|M|sus|dim|aug|add|°|ø|\+|-)?  # optional quality word
-    (?:sus\d|add\d+|\d+)*                     # any run of modifiers / extensions
+    (?:sus\d|add\d+|\d+|no\d+|b\d+|\#\d+)*    # extensions, tensions, alterations
     (?:/[A-G](?:\#|b)?)?                      # optional slash bass note
     \Z
     """,
     re.VERBOSE,
 )
+
+# Punctuation that can trail a chord token in running text, e.g. "B7,".
+_TRAILING_PUNCTUATION = ",.;:"
 
 DEFAULT_CHORD_THRESHOLD = 0.5
 DEFAULT_GAP_FACTOR = 2.5
@@ -43,7 +46,8 @@ class LineLabel:
 
 def is_chord(token: str) -> bool:
     """Return True when a token looks like a chord symbol."""
-    return bool(CHORD_REGEX.match(token.strip("()")))
+    candidate = token.strip("()").strip(_TRAILING_PUNCTUATION)
+    return bool(CHORD_REGEX.match(candidate))
 
 
 def chord_ratio(line: TextLine) -> float:
