@@ -33,7 +33,7 @@ _TRAILING_PUNCTUATION = ",.;:"
 DEFAULT_CHORD_THRESHOLD = 0.5
 DEFAULT_GAP_FACTOR = 2.5
 
-LineKind = Literal["chord", "chord_only", "lyric", "blank"]
+LineKind = Literal["chord", "chord_only", "lyric", "blank", "directive"]
 
 
 @dataclass
@@ -104,6 +104,10 @@ def classify_page(
     for line in page.lines:
         if not line.text.strip():
             labels.append(LineLabel(line=line, kind="blank"))
+        elif line.text.lstrip().startswith("{"):
+            # A ChordPro directive like {title: ...} is metadata, not content;
+            # it must not be paired with a chord or treated as a lyric.
+            labels.append(LineLabel(line=line, kind="directive"))
         elif chord_ratio(line) >= chord_threshold:
             labels.append(LineLabel(line=line, kind="chord"))
         else:

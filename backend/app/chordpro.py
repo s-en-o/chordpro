@@ -24,6 +24,45 @@ _TRAILING_CHORDS = re.compile(r"\s+chords?\s*$", re.IGNORECASE)
 # body size; uniform text (e.g. pasted text) is 1.0x and has no heading.
 _TITLE_SIZE_RATIO = 1.15
 
+# A ChordPro directive line, e.g. "{title: My Song}".
+_DIRECTIVE = re.compile(r"^\{(?P<key>[a-zA-Z_]+)\s*:\s*(?P<value>.*?)\}\s*$")
+
+
+def extract_directives(layout: LayoutDoc) -> dict[str, str]:
+    """Collect ``{key: value}`` directives found in the document's lines.
+
+    Only the keys we care about are returned. This lets a pasted or PDF sheet
+    that already contains ``{title: ...}`` populate the song's metadata.
+    """
+    found: dict[str, str] = {}
+    for page in layout.pages:
+        for line in page.lines:
+            match = _DIRECTIVE.match(line.text.strip())
+            if not match:
+                continue
+            key = match.group("key").lower()
+            value = match.group("value").strip()
+            if key in ("title", "t", "subtitle") and value:
+                found.setdefault("title", value)
+            elif key in ("artist", "composer", "author") and value:
+                found.setdefault("artist", value)
+    return found
+
+
+# Directive keys that are lifted into metadata, so their lines are removed from
+# the body to avoid repeating the value.
+METADATA_DIRECTIVE_KEYS = frozenset(
+    {"title", "t", "subtitle", "artist", "composer", "author"}
+)
+
+
+def is_metadata_directive(text: str) -> bool:
+    """Return True when a line is a directive that moves into metadata."""
+    match = _DIRECTIVE.match(text.strip())
+    if not match:
+        return False
+    return match.group("key").lower() in METADATA_DIRECTIVE_KEYS
+
 
 def serialize(song: Song) -> str:
     """Render a Song as ChordPro text."""

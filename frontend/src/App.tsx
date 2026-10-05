@@ -8,6 +8,8 @@ export default function App() {
   const [mode, setMode] = useState<Mode>("pdf");
   const [file, setFile] = useState<File | null>(null);
   const [pastText, setPastText] = useState<string>("");
+  const [title, setTitle] = useState<string>("");
+  const [artist, setArtist] = useState<string>("");
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [chordpro, setChordpro] = useState<string>("");
   const [qa, setQa] = useState<QAReport | null>(null);
@@ -31,13 +33,18 @@ export default function App() {
     try {
       if (mode === "pdf") {
         if (!file) return;
-        const result = await convertPdf(file);
+        const result = await convertPdf(file, { title, artist });
         setChordpro(result.chordpro);
         setQa(result.qa);
+        // Prefill the fields with whatever the converter detected.
+        setTitle(result.metadata.title ?? title);
+        setArtist(result.metadata.artist ?? artist);
       } else {
-        const result = await convertText(pastText);
+        const result = await convertText(pastText, { title, artist });
         setChordpro(result.chordpro);
         setQa(result.qa);
+        setTitle(result.metadata.title ?? title);
+        setArtist(result.metadata.artist ?? artist);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Conversion failed");
@@ -52,9 +59,9 @@ export default function App() {
     const link = document.createElement("a");
     link.href = url;
     const baseName =
-      mode === "pdf"
-        ? (file?.name.replace(/\.pdf$/i, "") ?? "song")
-        : "song";
+      (title.trim() ||
+        (mode === "pdf" ? file?.name.replace(/\.pdf$/i, "") : "")) ||
+      "song";
     link.download = baseName + ".cho";
     document.body.appendChild(link);
     link.click();
@@ -64,12 +71,15 @@ export default function App() {
 
   const canConvert = mode === "pdf" ? Boolean(file) : pastText.trim().length > 0;
 
-  function selectMode(next: Mode) {
-    setMode(next);
-    // A new source mode invalidates the previous result.
+  function resetResult() {
     setChordpro("");
     setQa(null);
     setError("");
+  }
+
+  function selectMode(next: Mode) {
+    setMode(next);
+    resetResult();
   }
 
   return (
@@ -91,6 +101,27 @@ export default function App() {
         </button>
       </div>
 
+      <div className="meta-fields">
+        <label>
+          Title
+          <input
+            type="text"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="(optional)"
+          />
+        </label>
+        <label>
+          Artist
+          <input
+            type="text"
+            value={artist}
+            onChange={(event) => setArtist(event.target.value)}
+            placeholder="(optional)"
+          />
+        </label>
+      </div>
+
       <button onClick={handleConvert} disabled={!canConvert || busy}>
         {busy ? "Converting…" : "Convert"}
       </button>
@@ -107,9 +138,7 @@ export default function App() {
                 accept="application/pdf"
                 onChange={(event) => {
                   setFile(event.target.files?.[0] ?? null);
-                  setChordpro("");
-                  setQa(null);
-                  setError("");
+                  resetResult();
                 }}
               />
               {previewUrl ? (
@@ -124,9 +153,7 @@ export default function App() {
               value={pastText}
               onChange={(event) => {
                 setPastText(event.target.value);
-                setChordpro("");
-                setQa(null);
-                setError("");
+                resetResult();
               }}
               placeholder={"Paste a chord sheet here.\n\nC     G\nHello world"}
             />

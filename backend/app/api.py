@@ -3,7 +3,7 @@
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -26,10 +26,24 @@ class ConvertTextRequest(BaseModel):
     """Request body for the paste-text conversion endpoint."""
 
     text: str
+    title: str | None = None
+    artist: str | None = None
+
+
+def _apply_overrides(song, title: str | None, artist: str | None) -> None:
+    """Apply user-supplied title/artist, overriding detected metadata."""
+    if title is not None and title.strip():
+        song.metadata["title"] = title.strip()
+    if artist is not None and artist.strip():
+        song.metadata["artist"] = artist.strip()
 
 
 @app.post("/api/convert")
-async def convert(file: UploadFile = File(...)) -> JSONResponse:
+async def convert(
+    file: UploadFile = File(...),
+    title: str | None = Form(None),
+    artist: str | None = Form(None),
+) -> JSONResponse:
     """Convert an uploaded PDF into ChordPro text plus a QA report."""
     if file.size is not None and file.size > MAX_UPLOAD_BYTES:
         return JSONResponse(status_code=413, content={"error": "file too large"})
@@ -60,6 +74,7 @@ async def convert(file: UploadFile = File(...)) -> JSONResponse:
             )
 
     song = await run_in_threadpool(convert_layout, layout)
+    _apply_overrides(song, title, artist)
     qa = asdict(song.qa)
     if used_ocr:
         qa["notes"].append(
@@ -68,7 +83,11 @@ async def convert(file: UploadFile = File(...)) -> JSONResponse:
         )
     return JSONResponse(
         status_code=200,
-        content={"chordpro": serialize(song), "qa": qa},
+        content={
+            "chordpro": serialize(song),
+            "qa": qa,
+            "metadata": song.metadata,
+        },
     )
 
 
@@ -88,9 +107,14 @@ async def convert_text(request: ConvertTextRequest) -> JSONResponse:
         return JSONResponse(status_code=400, content={"error": "no text to convert"})
 
     song = await run_in_threadpool(convert_layout, layout)
+    _apply_overrides(song, request.title, request.artist)
     return JSONResponse(
         status_code=200,
-        content={"chordpro": serialize(song), "qa": asdict(song.qa)},
+        content={
+            "chordpro": serialize(song),
+            "qa": asdict(song.qa),
+            "metadata": song.metadata,
+        },
     )
 
 

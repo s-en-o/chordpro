@@ -140,6 +140,41 @@ def test_convert_text_passes_inline_chordpro_through() -> None:
     assert "[C]Hello [G]world" in response.json()["chordpro"]
 
 
+def test_convert_text_reports_detected_metadata() -> None:
+    response = client.post(
+        "/api/convert-text",
+        json={"text": "{title: My Song}\n{artist: Me}\n[C]Hello\n"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["metadata"] == {"title": "My Song", "artist": "Me"}
+    # The lifted directives appear once, as the metadata header, and are not
+    # repeated as body lines.
+    body_lines = body["chordpro"].split("\n\n", 1)[1]
+    assert "{title:" not in body_lines
+    assert "{artist:" not in body_lines
+
+
+def test_convert_text_applies_title_override() -> None:
+    response = client.post(
+        "/api/convert-text",
+        json={"text": "[C]Hello\n", "title": "Typed Title", "artist": "Typed Artist"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["metadata"] == {"title": "Typed Title", "artist": "Typed Artist"}
+    assert body["chordpro"].startswith("{title: Typed Title}\n{artist: Typed Artist}\n\n")
+
+
+def test_convert_text_override_beats_directive() -> None:
+    response = client.post(
+        "/api/convert-text",
+        json={"text": "{title: From Sheet}\n[C]Hello\n", "title": "From Form"},
+    )
+    assert response.status_code == 200
+    assert response.json()["metadata"]["title"] == "From Form"
+
+
 def test_convert_text_rejects_empty() -> None:
     response = client.post("/api/convert-text", json={"text": "   \n  \n"})
     assert response.status_code == 400

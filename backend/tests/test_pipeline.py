@@ -48,3 +48,37 @@ def test_convert_layout_spans_multiple_pages() -> None:
     )
     song = convert_layout(LayoutDoc(pages=[page1, page2]))
     assert [line.text for line in song.lines] == ["[C]one", "[G]two"]
+
+
+def test_convert_layout_keeps_unknown_directive_line_intact() -> None:
+    # A directive that is not title/artist must survive as its own line and
+    # never have a chord merged into it.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[
+            make_line("C     G", 0),
+            make_line("{start_of_chorus}", 14),
+            make_line("[C]Hello", 28),
+        ],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert [line.text for line in song.lines] == [
+        "[C] [G]",
+        "{start_of_chorus}",
+        "[C]Hello",
+    ]
+
+
+def test_convert_layout_lifts_directives_into_metadata() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{title: My Song}", 0), make_line("[C]Hello", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    # The title is lifted into metadata and not repeated in the body.
+    assert song.metadata == {"title": "My Song"}
+    assert [line.text for line in song.lines] == ["[C]Hello"]
