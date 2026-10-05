@@ -82,3 +82,41 @@ def test_convert_layout_lifts_directives_into_metadata() -> None:
     # The title is lifted into metadata and not repeated in the body.
     assert song.metadata == {"title": "My Song"}
     assert [line.text for line in song.lines] == ["[C]Hello"]
+
+
+def test_convert_layout_does_not_parse_two_directives_on_one_line() -> None:
+    # "{title: A} {artist: B}" is not a single directive; it must survive
+    # verbatim rather than being mis-split and dropped.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{title: A} {artist: B}", 0), make_line("[C]Hi", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert song.metadata == {}
+    assert song.lines[0].text == "{title: A} {artist: B}"
+
+
+def test_convert_layout_keeps_empty_valued_directive() -> None:
+    # {title:} has no value, so it must not be lifted nor dropped.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{title:}", 0), make_line("[C]Hi", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert song.metadata == {}
+    assert song.lines[0].text == "{title:}"
+
+
+def test_convert_layout_prefers_title_over_subtitle() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{subtitle: Sub}", 0), make_line("{title: Main}", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert song.metadata == {"title": "Main"}

@@ -24,44 +24,66 @@ _TRAILING_CHORDS = re.compile(r"\s+chords?\s*$", re.IGNORECASE)
 # body size; uniform text (e.g. pasted text) is 1.0x and has no heading.
 _TITLE_SIZE_RATIO = 1.15
 
-# A ChordPro directive line, e.g. "{title: My Song}".
-_DIRECTIVE = re.compile(r"^\{(?P<key>[a-zA-Z_]+)\s*:\s*(?P<value>.*?)\}\s*$")
+# A ChordPro directive line: one whole line of the form "{key: value}". The
+# value stops at the first "}" and the whole line must be a single directive,
+# so a line containing two directives is not mis-parsed.
+_DIRECTIVE = re.compile(r"^\{(?P<key>[a-zA-Z_]+)\s*:\s*(?P<value>[^}]*)\}\s*$")
 
-
-def extract_directives(layout: LayoutDoc) -> dict[str, str]:
-    """Collect ``{key: value}`` directives found in the document's lines.
-
-    Only the keys we care about are returned. This lets a pasted or PDF sheet
-    that already contains ``{title: ...}`` populate the song's metadata.
-    """
-    found: dict[str, str] = {}
-    for page in layout.pages:
-        for line in page.lines:
-            match = _DIRECTIVE.match(line.text.strip())
-            if not match:
-                continue
-            key = match.group("key").lower()
-            value = match.group("value").strip()
-            if key in ("title", "t", "subtitle") and value:
-                found.setdefault("title", value)
-            elif key in ("artist", "composer", "author") and value:
-                found.setdefault("artist", value)
-    return found
-
-
-# Directive keys that are lifted into metadata, so their lines are removed from
-# the body to avoid repeating the value.
+# Keys that map to a song's title, most specific first.
+_TITLE_KEYS = ("title", "t")
+# Keys that map to a song's artist.
+_ARTIST_KEYS = ("artist", "composer", "author")
+# Keys that are lifted into metadata at all (their lines leave the body).
 METADATA_DIRECTIVE_KEYS = frozenset(
-    {"title", "t", "subtitle", "artist", "composer", "author"}
+    _TITLE_KEYS + _ARTIST_KEYS + ("subtitle",)
 )
 
 
-def is_metadata_directive(text: str) -> bool:
-    """Return True when a line is a directive that moves into metadata."""
+def _directive_key_value(text: str) -> tuple[str, str] | None:
+    """Return ``(lowercased key, value)`` for a directive line, else None."""
     match = _DIRECTIVE.match(text.strip())
     if not match:
+        return None
+    return (match.group("key").lower(), match.group("value").strip())
+
+
+def extract_directives(layout: LayoutDoc) -> dict[str, str]:
+    """Collect ``{key: value}`` directives that populate song metadata.
+
+    A ``{title: ...}`` (or ``{t: ...}``) sets the title and ``{artist: ...}``
+    (or composer/author) sets the artist. Only non-empty values count. Title
+    keys are preferred over a subtitle regardless of order.
+    """
+    found: dict[str, str] = {}
+    subtitle = ""
+    for page in layout.pages:
+        for line in page.lines:
+            parsed = _directive_key_value(line.text)
+            if not parsed:
+                continue
+            key, value = parsed
+            if not value:
+                continue
+            if key in _TITLE_KEYS and "title" not in found:
+                found["title"] = value
+            elif key == "subtitle" and not subtitle:
+                subtitle = value
+            elif key in _ARTIST_KEYS and "artist" not in found:
+                found["artist"] = value
+    # A real title wins over a subtitle; a subtitle stands in only if there is
+    # no title at all.
+    if "title" not in found and subtitle:
+        found["title"] = subtitle
+    return found
+
+
+def is_metadata_directive(text: str) -> bool:
+    """Return True when a line is a non-empty directive that moves into metadata."""
+    parsed = _directive_key_value(text)
+    if parsed is None:
         return False
-    return match.group("key").lower() in METADATA_DIRECTIVE_KEYS
+    key, value = parsed
+    return bool(value) and key in METADATA_DIRECTIVE_KEYS
 
 
 def serialize(song: Song) -> str:

@@ -175,6 +175,27 @@ def test_convert_text_override_beats_directive() -> None:
     assert response.json()["metadata"]["title"] == "From Form"
 
 
+def test_convert_text_empty_override_does_not_clear_detected() -> None:
+    # An empty/whitespace override is ignored, so a detected title survives.
+    response = client.post(
+        "/api/convert-text",
+        json={"text": "{title: From Sheet}\n[C]Hi\n", "title": "   "},
+    )
+    assert response.status_code == 200
+    assert response.json()["metadata"]["title"] == "From Sheet"
+
+
+def test_convert_pdf_applies_title_override() -> None:
+    response = client.post(
+        "/api/convert",
+        files={"file": ("song.pdf", make_text_pdf(), "application/pdf")},
+        data={"title": "PDF Title", "artist": "PDF Artist"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["metadata"] == {"title": "PDF Title", "artist": "PDF Artist"}
+
+
 def test_convert_text_rejects_empty() -> None:
     response = client.post("/api/convert-text", json={"text": "   \n  \n"})
     assert response.status_code == 400

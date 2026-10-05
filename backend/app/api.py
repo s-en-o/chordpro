@@ -14,6 +14,7 @@ from app.adapters.ocr import OcrAdapter
 from app.adapters.paste import PasteTextAdapter
 from app.adapters.pdf import PdfAdapter
 from app.chordpro import serialize
+from app.models import Song
 from app.pipeline import convert_layout
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -30,7 +31,7 @@ class ConvertTextRequest(BaseModel):
     artist: str | None = None
 
 
-def _apply_overrides(song, title: str | None, artist: str | None) -> None:
+def _apply_overrides(song: Song, title: str | None, artist: str | None) -> None:
     """Apply user-supplied title/artist, overriding detected metadata."""
     if title is not None and title.strip():
         song.metadata["title"] = title.strip()

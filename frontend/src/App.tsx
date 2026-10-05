@@ -62,7 +62,8 @@ export default function App() {
       (title.trim() ||
         (mode === "pdf" ? file?.name.replace(/\.pdf$/i, "") : "")) ||
       "song";
-    link.download = baseName + ".cho";
+    const safeName = baseName.replace(/[\\/:*?"<>|]+/g, "-");
+    link.download = safeName + ".cho";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
