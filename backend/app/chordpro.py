@@ -9,7 +9,12 @@ from app.models import Song
 # "Kansas City Chords by Wilbert Harrisontabs @ Ultimate Guitar Archive".
 _SITE_SUFFIX = re.compile(r"\s*tabs?\s*@\s*Ultimate Guitar Archive\s*$", re.IGNORECASE)
 _VERSION_MARKER = re.compile(r"\s*\(ver\s*\d+\)", re.IGNORECASE)
-_BY_ARTIST = re.compile(r"\s+by\s+(?P<artist>.+)$", re.IGNORECASE)
+# Split on the LAST " by " so a song title that itself contains "By"
+# (e.g. "Stand By Me") is not mistaken for the artist boundary.
+_BY_ARTIST = re.compile(
+    r"\A(?P<title>.*)\s+by\s+(?P<artist>.+?)\Z",
+    re.IGNORECASE | re.DOTALL,
+)
 # Songbook titles are often "<Song> Chords by <Artist>"; drop the "Chords".
 _TRAILING_CHORDS = re.compile(r"\s+chords?\s*$", re.IGNORECASE)
 
@@ -38,15 +43,15 @@ def clean_title(raw: str) -> tuple[str, str]:
     text = _SITE_SUFFIX.sub("", raw.strip())
     text = _VERSION_MARKER.sub("", text).strip()
 
-    artist_match = _BY_ARTIST.search(text)
+    artist_match = _BY_ARTIST.match(text)
     if not artist_match:
-        return (text, "")
+        # No artist to recover; still drop a trailing "Chords" marker.
+        return (_TRAILING_CHORDS.sub("", text).strip(), "")
 
     artist = artist_match.group("artist").strip()
-    title = text[: artist_match.start()].strip()
-    title = _TRAILING_CHORDS.sub("", title).strip()
-    # A leading "Chords by ..." with no song name would leave an empty title.
-    if not title:
+    title = _TRAILING_CHORDS.sub("", artist_match.group("title")).strip()
+    if not title or title.lower() in ("chord", "chords"):
+        # A bare "Chords by X" has no song name; keep the raw text as the title.
         return (text, "")
     return (title, artist)
 

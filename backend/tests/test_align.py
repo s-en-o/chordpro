@@ -85,6 +85,20 @@ def test_align_page_folds_blanks_between_stacked_chords() -> None:
     assert [line.text for line in lines] == ["[C][G]hello world"]
 
 
+def test_align_page_handles_chord_stack_with_no_lyric() -> None:
+    # Defensive path: classify_page normally prevents a trailing chord, but
+    # align_page must not crash on hand-built input.
+    labels = [
+        LineLabel(make_line("C", 0), "chord"),
+        LineLabel(make_line("", 14), "blank"),
+        LineLabel(make_line("G", 28), "chord"),
+    ]
+    qa = QAReport()
+    lines = align_page(labels, qa)
+    assert [line.text for line in lines] == ["[C]", "[G]"]
+    assert qa.unpaired_chords == ["C", "G"]
+
+
 def test_align_page_keeps_blank_after_chord_lyric_pair() -> None:
     # A blank line AFTER a chord/lyric pair is a real separator and stays.
     labels = [

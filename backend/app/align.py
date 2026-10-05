@@ -96,8 +96,21 @@ def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
         label = labels[index]
         if label.kind == "chord":
             # Collect the whole stack of chord lines above one lyric.
-            # classify_page guarantees the stack ends at a lyric line.
+            # classify_page guarantees the stack ends at a lyric line, but
+            # check anyway so this public function cannot IndexError on
+            # hand-built labels.
             chord_labels, trailing_blanks, index = _collect_chord_stack(labels, index)
+            if index >= len(labels):
+                # Defensive: a stack with no lyric beneath it. Emit each chord
+                # line on its own and record the chords as unpaired.
+                for chord_label in chord_labels:
+                    song_lines.append(
+                        SongLine(kind="chord_only", text=chord_only_text(chord_label.line))
+                    )
+                    for token, _ in token_positions(chord_label.line):
+                        if is_chord(token):
+                            qa.unpaired_chords.append(token)
+                continue
             song_lines.append(merge_chord_lines(chord_labels, labels[index], qa))
             index += 1
             for _ in trailing_blanks:

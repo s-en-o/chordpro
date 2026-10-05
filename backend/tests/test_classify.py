@@ -33,7 +33,18 @@ def test_is_chord_tolerates_trailing_punctuation() -> None:
 
 
 def test_is_chord_rejects_words() -> None:
-    for token in ["Hello", "world", "the", "grace", "And", "Chords", "But"]:
+    for token in [
+        "Hello",
+        "world",
+        "the",
+        "grace",
+        "And",
+        "Chords",
+        "But",
+        "City",
+        "Cry",
+        "Dad",
+    ]:
         assert not is_chord(token), token
 
 
