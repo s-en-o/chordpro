@@ -13,14 +13,24 @@ class SongLine:
 
     kind: LineKind
     text: str
+    # Which source IR line this came from (global index across pages), or None
+    # for lines we synthesize (e.g. a blank line kept for layout). Used to map
+    # source-based QA signals onto output line numbers.
+    source_line: int | None = None
 
 
 @dataclass
 class QAReport:
-    """Signals surfaced to the UI so the user can spot bad conversions."""
+    """Signals surfaced to the UI so the user can spot bad conversions.
+
+    ``low_confidence_lines`` and ``unpaired_chord_lines`` are *display* line
+    numbers in the rendered ChordPro text (counting the metadata header), so
+    the UI can jump straight to the line the user sees.
+    """
 
     unpaired_chords: list[str] = field(default_factory=list)
     low_confidence_lines: list[int] = field(default_factory=list)
+    unpaired_chord_lines: list[int] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
 

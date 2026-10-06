@@ -1,6 +1,9 @@
 export interface QAReport {
   unpaired_chords: string[];
+  /** Display line numbers in the rendered ChordPro text. */
   low_confidence_lines: number[];
+  /** Display line numbers of chord-only (unpaired) lines. */
+  unpaired_chord_lines: number[];
   notes: string[];
 }
 

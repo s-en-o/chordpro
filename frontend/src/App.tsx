@@ -23,7 +23,10 @@ export default function App() {
   const [busy, setBusy] = useState<boolean>(false);
   const [view, setView] = useState<OutputView>("edit");
   const [copied, setCopied] = useState<boolean>(false);
+  const [highlightLine, setHighlightLine] = useState<number | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editRef = useRef<HTMLTextAreaElement>(null);
 
   // Keep an object URL for the PDF preview, and clean it up when it changes.
   useEffect(() => {
@@ -97,6 +100,34 @@ export default function App() {
     setError("");
     setCopied(false);
     setSuggested({});
+    setHighlightLine(null);
+  }
+
+  /**
+   * Jump to a display line number in the output. In Preview the line is
+   * highlighted and scrolled into view; in Edit the textarea selects and
+   * scrolls to it. The highlight clears itself after a moment.
+   */
+  function jumpToLine(line: number) {
+    setHighlightLine(line);
+    if (editRef.current) {
+      const lines = chordpro.split("\n");
+      const target = Math.max(0, Math.min(line, lines.length - 1));
+      let charStart = 0;
+      for (let i = 0; i < target; i += 1) {
+        charStart += lines[i].length + 1;
+      }
+      const field = editRef.current;
+      field.focus();
+      field.setSelectionRange(charStart, charStart + lines[target].length);
+      // Scroll so the target line sits near the middle of the textarea.
+      const lineHeight = parseFloat(getComputedStyle(field).lineHeight) || 20;
+      field.scrollTop = Math.max(0, target * lineHeight - field.clientHeight / 2);
+    }
+    if (highlightTimer.current !== null) {
+      clearTimeout(highlightTimer.current);
+    }
+    highlightTimer.current = setTimeout(() => setHighlightLine(null), 2500);
   }
 
   function startOver() {
@@ -254,13 +285,14 @@ export default function App() {
 
           {view === "edit" ? (
             <textarea
+              ref={editRef}
               value={chordpro}
               onChange={(event) => setChordpro(event.target.value)}
               placeholder="Converted ChordPro will appear here."
               className="h-[480px] w-full resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm outline-none focus:border-brand-500 dark:border-slate-800 dark:bg-slate-900"
             />
           ) : (
-            <ChordPreview chordpro={chordpro} />
+            <ChordPreview chordpro={chordpro} highlightLine={highlightLine} />
           )}
 
           <div className="flex flex-wrap gap-2">
@@ -288,7 +320,7 @@ export default function App() {
         </section>
       </div>
 
-      {qa && <Warnings qa={qa} />}
+      {qa && <Warnings qa={qa} onJump={jumpToLine} />}
     </div>
   );
 }
