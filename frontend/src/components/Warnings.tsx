@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { QAReport } from "../api";
 
@@ -12,6 +12,11 @@ interface WarningsProps {
  */
 export default function Warnings({ qa }: WarningsProps) {
   const [dismissed, setDismissed] = useState(false);
+
+  // A fresh conversion (new qa object) should surface its warnings again.
+  useEffect(() => {
+    setDismissed(false);
+  }, [qa]);
 
   const hasContent =
     qa.notes.length > 0 ||

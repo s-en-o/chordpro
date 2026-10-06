@@ -52,6 +52,26 @@ describe("parseLine", () => {
     const line = parseLine("just a lyric");
     expect(line.segments).toEqual([{ chord: null, text: "just a lyric" }]);
   });
+
+  it("keeps text between two chords", () => {
+    const line = parseLine("[C]one[G]two");
+    expect(line.segments).toEqual([
+      { chord: "C", text: "one" },
+      { chord: "G", text: "two" },
+    ]);
+    expect(segmentsToText(line.segments)).toBe("[C]one[G]two");
+  });
+
+  it("tolerates an empty chord marker", () => {
+    // "[]" is unusual but must not crash; it becomes an empty chord segment.
+    const line = parseLine("[]word");
+    expect(segmentsToText(line.segments)).toBe("[]word");
+  });
+
+  it("strips a trailing carriage return", () => {
+    const line = parseLine("[C]Hello\r");
+    expect(line.segments).toEqual([{ chord: "C", text: "Hello" }]);
+  });
 });
 
 describe("parseChordPro", () => {

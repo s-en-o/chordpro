@@ -18,10 +18,13 @@ function formatSize(bytes: number): string {
  */
 export default function Dropzone({ file, onFile }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // Count enter/leave events so moving over child elements does not flicker.
+  const dragDepth = useRef(0);
   const [dragging, setDragging] = useState(false);
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    dragDepth.current = 0;
     setDragging(false);
     const dropped = event.dataTransfer.files?.[0] ?? null;
     if (dropped) {
@@ -31,11 +34,19 @@ export default function Dropzone({ file, onFile }: DropzoneProps) {
 
   return (
     <div
-      onDragOver={(event) => {
+      onDragEnter={(event) => {
         event.preventDefault();
+        dragDepth.current += 1;
         setDragging(true);
       }}
-      onDragLeave={() => setDragging(false)}
+      onDragOver={(event) => event.preventDefault()}
+      onDragLeave={() => {
+        dragDepth.current -= 1;
+        if (dragDepth.current <= 0) {
+          dragDepth.current = 0;
+          setDragging(false);
+        }
+      }}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
       className={[

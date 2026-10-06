@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { convertPdf, convertText, type QAReport } from "./api";
+import { convertPdf, convertText, type Metadata, type QAReport } from "./api";
 import ChordPreview from "./components/ChordPreview";
 import Dropzone from "./components/Dropzone";
 import ThemeToggle from "./components/ThemeToggle";
@@ -15,6 +15,7 @@ export default function App() {
   const [pastText, setPastText] = useState<string>("");
   const [title, setTitle] = useState<string>("");
   const [artist, setArtist] = useState<string>("");
+  const [suggested, setSuggested] = useState<Metadata>({});
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [chordpro, setChordpro] = useState<string>("");
   const [qa, setQa] = useState<QAReport | null>(null);
@@ -22,6 +23,7 @@ export default function App() {
   const [busy, setBusy] = useState<boolean>(false);
   const [view, setView] = useState<OutputView>("edit");
   const [copied, setCopied] = useState<boolean>(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep an object URL for the PDF preview, and clean it up when it changes.
   useEffect(() => {
@@ -44,6 +46,9 @@ export default function App() {
           : await convertText(pastText, { title, artist });
       setChordpro(result.chordpro);
       setQa(result.qa);
+      // Remember what was detected so the download name survives clearing the
+      // input fields below.
+      setSuggested(result.metadata);
       // The fields were sent as overrides; clear them so the next conversion
       // starts fresh (the converted output keeps the title/artist header).
       setTitle("");
@@ -62,6 +67,7 @@ export default function App() {
     link.href = url;
     const baseName =
       (title.trim() ||
+        suggested.title ||
         (mode === "pdf" ? file?.name.replace(/\.pdf$/i, "") : "")) ||
       "song";
     const safeName = baseName.replace(/[\\/:*?"<>|]+/g, "-");
@@ -76,7 +82,10 @@ export default function App() {
     try {
       await navigator.clipboard.writeText(chordpro);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (copyTimer.current !== null) {
+        clearTimeout(copyTimer.current);
+      }
+      copyTimer.current = setTimeout(() => setCopied(false), 1500);
     } catch {
       setError("Could not copy to the clipboard.");
     }
@@ -87,6 +96,7 @@ export default function App() {
     setQa(null);
     setError("");
     setCopied(false);
+    setSuggested({});
   }
 
   function startOver() {
@@ -120,11 +130,21 @@ export default function App() {
         <ThemeToggle />
       </header>
 
-      <div className="mb-4 inline-flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900">
-        <button className={tabClass(mode === "pdf")} onClick={() => { setMode("pdf"); resetResult(); }}>
+      <div className="mb-4 inline-flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900" role="tablist">
+        <button
+          role="tab"
+          aria-selected={mode === "pdf"}
+          className={tabClass(mode === "pdf")}
+          onClick={() => { setMode("pdf"); resetResult(); }}
+        >
           PDF
         </button>
-        <button className={tabClass(mode === "text")} onClick={() => { setMode("text"); resetResult(); }}>
+        <button
+          role="tab"
+          aria-selected={mode === "text"}
+          className={tabClass(mode === "text")}
+          onClick={() => { setMode("text"); resetResult(); }}
+        >
           Paste text
         </button>
       </div>
@@ -216,14 +236,18 @@ export default function App() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               ChordPro
             </h2>
-            <div className="inline-flex gap-1 rounded-md bg-slate-100 p-0.5 text-xs dark:bg-slate-900">
+            <div className="inline-flex gap-1 rounded-md bg-slate-100 p-0.5 text-xs dark:bg-slate-900" role="tablist">
               <button
+                role="tab"
+                aria-selected={view === "edit"}
                 className={`rounded px-2 py-1 ${view === "edit" ? "bg-white shadow dark:bg-slate-700" : ""}`}
                 onClick={() => setView("edit")}
               >
                 Edit
               </button>
               <button
+                role="tab"
+                aria-selected={view === "preview"}
                 className={`rounded px-2 py-1 ${view === "preview" ? "bg-white shadow dark:bg-slate-700" : ""}`}
                 onClick={() => setView("preview")}
               >

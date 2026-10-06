@@ -119,6 +119,12 @@ def test_guess_metadata_ignores_case_insensitive_placeholders() -> None:
     assert guess_metadata(layout) == {}
 
 
+def test_guess_metadata_ignores_placeholder_artist_from_title() -> None:
+    # The artist was recovered from the title text, but it is a placeholder.
+    layout = LayoutDoc(metadata={"title": "Foo by Anonymous"})
+    assert guess_metadata(layout) == {"title": "Foo"}
+
+
 def test_guess_metadata_does_not_treat_directive_as_title() -> None:
     # The directive line is the LARGEST text, so only the directive guard can
     # reject it (the size-ratio rule would otherwise accept it as a heading).

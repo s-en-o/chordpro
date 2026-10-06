@@ -151,9 +151,11 @@ def guess_metadata(layout: LayoutDoc) -> dict[str, str]:
         metadata["title"] = title
 
     # An explicit document author wins over the artist parsed from the title.
-    artist = layout.metadata.get("author", "").strip() or derived_artist
+    # A placeholder in either spot is discarded rather than emitted.
+    author = layout.metadata.get("author", "").strip()
+    artist = author if author and not _is_placeholder(author) else derived_artist
     if _is_placeholder(artist):
-        artist = derived_artist
+        artist = ""
     if artist:
         metadata["artist"] = artist
 
@@ -161,7 +163,12 @@ def guess_metadata(layout: LayoutDoc) -> dict[str, str]:
 
 
 def _is_placeholder(value: str) -> bool:
-    """Return True for known junk metadata values (e.g. "untitled")."""
+    """Return True for known junk metadata values (e.g. "untitled").
+
+    The match is exact on a small known set, so a song genuinely titled
+    "Unknown" would be dropped — an accepted trade-off, since such a title is
+    far more likely to be tool-generated filler.
+    """
     return value.strip().lower() in _PLACEHOLDER_VALUES
 
 
