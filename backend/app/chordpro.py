@@ -84,7 +84,7 @@ def section_label(text: str) -> str | None:
     # is treated as a section. Bracket forms ("[Chorus]") are always labels,
     # since a real chord would be "[C]" and not a section word.
     is_brace = stripped.startswith("{")
-    if is_brace and " " not in inner and not any(c.isdigit() for c in inner):
+    if is_brace and not any(c.isspace() or c.isdigit() for c in inner):
         return None
     normalized = " ".join(inner.split()).lower()
     # A colon always separates trailing detail; a dash only when spaced, so the

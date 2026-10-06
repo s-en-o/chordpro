@@ -55,10 +55,10 @@ const SHORT_CLOSE = /^\{(?<key>eo[a-z])\}$/;
 
 /** A bracket section label, e.g. "[Chorus]" or "[Verse 2]". */
 const SECTION_LABEL =
-  /^\[\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)[\s\d\w-]*\]$/i;
+  /^\[\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)([\s\d][\s\d\w-]*)?\]$/i;
 /** A brace section label carrying detail, e.g. "{Verse 1}" (not bare "{chorus}"). */
 const SECTION_LABEL_BRACE =
-  /^\{\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)[\s\d\w-]+[\s\d\w-]*\}$/i;
+  /^\{\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)[\s\d][\s\d\w-]*\}$/i;
 
 /** True when a line opens a ChordPro section environment (long or short form). */
 export function opensEnvironment(text: string): boolean {

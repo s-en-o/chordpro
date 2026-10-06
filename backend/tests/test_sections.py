@@ -43,6 +43,15 @@ def test_section_label_rejects_bare_brace_directives() -> None:
         assert section_label(token) is None, token
 
 
+def test_section_label_brace_requires_detail() -> None:
+    # A bare brace form without a space/digit is treated as a directive, not a
+    # label, so real directives like {chorus} are never clobbered.
+    assert section_label("{Pre-Chorus}") is None
+    assert section_label("{Pre-Chorus 2}") == "pre-chorus"
+    # The bracket form (the common one in song sheets) always works.
+    assert section_label("[Pre-Chorus]") == "pre-chorus"
+
+
 def test_section_label_rejects_metadata_and_plain_lyrics() -> None:
     assert section_label("{title: My Song}") is None
     assert section_label("just a lyric") is None
