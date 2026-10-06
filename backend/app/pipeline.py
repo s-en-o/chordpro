@@ -52,8 +52,13 @@ def map_qa_to_display_lines(song: Song) -> None:
     Must run after metadata is final (including user overrides), because the
     metadata header shifts every body line down. ``qa.unpaired_chord_lines``
     and ``qa.low_confidence_lines`` hold source line numbers on entry and
-    display line numbers on return.
+    display line numbers on return. Safe to call more than once: a private
+    flag on the song makes repeat calls no-ops.
     """
+    if song.qa_mapped:
+        return
+    song.qa_mapped = True
+
     header = header_line_count(song.metadata)
     source_to_body = {
         line.source_line: body_index

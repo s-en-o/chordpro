@@ -198,3 +198,17 @@ def test_map_qa_accounts_for_user_title_override() -> None:
     map_qa_to_display_lines(song)
     # Header "{title: Typed}" + blank = 2 lines; chord lines are body 0,1.
     assert song.qa.unpaired_chord_lines == [2, 3]
+
+
+def test_map_qa_is_idempotent() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C     G", 0), make_line("Am", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    map_qa_to_display_lines(song)
+    first = list(song.qa.unpaired_chord_lines)
+    map_qa_to_display_lines(song)
+    assert song.qa.unpaired_chord_lines == first
