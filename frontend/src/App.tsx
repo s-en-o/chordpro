@@ -130,18 +130,16 @@ export default function App() {
         <ThemeToggle />
       </header>
 
-      <div className="mb-4 inline-flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900" role="tablist">
+      <div className="mb-4 inline-flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900">
         <button
-          role="tab"
-          aria-selected={mode === "pdf"}
+          aria-pressed={mode === "pdf"}
           className={tabClass(mode === "pdf")}
           onClick={() => { setMode("pdf"); resetResult(); }}
         >
           PDF
         </button>
         <button
-          role="tab"
-          aria-selected={mode === "text"}
+          aria-pressed={mode === "text"}
           className={tabClass(mode === "text")}
           onClick={() => { setMode("text"); resetResult(); }}
         >
@@ -236,18 +234,16 @@ export default function App() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               ChordPro
             </h2>
-            <div className="inline-flex gap-1 rounded-md bg-slate-100 p-0.5 text-xs dark:bg-slate-900" role="tablist">
+            <div className="inline-flex gap-1 rounded-md bg-slate-100 p-0.5 text-xs dark:bg-slate-900">
               <button
-                role="tab"
-                aria-selected={view === "edit"}
+                aria-pressed={view === "edit"}
                 className={`rounded px-2 py-1 ${view === "edit" ? "bg-white shadow dark:bg-slate-700" : ""}`}
                 onClick={() => setView("edit")}
               >
                 Edit
               </button>
               <button
-                role="tab"
-                aria-selected={view === "preview"}
+                aria-pressed={view === "preview"}
                 className={`rounded px-2 py-1 ${view === "preview" ? "bg-white shadow dark:bg-slate-700" : ""}`}
                 onClick={() => setView("preview")}
               >
