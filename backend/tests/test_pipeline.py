@@ -172,6 +172,18 @@ def test_section_label_with_detail_still_wraps() -> None:
     assert song.lines[0].text == "{comment: Outro tag}"
 
 
+def test_bare_brace_directive_is_left_alone() -> None:
+    # "{chorus}" is the real recall-chorus directive, not a section label.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{chorus}", 0), make_line("sing", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert [line.text for line in song.lines] == ["{chorus}", "sing"]
+
+
 def test_section_without_environment_becomes_comment() -> None:
     page = Page(
         number=1,

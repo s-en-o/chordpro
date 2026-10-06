@@ -53,9 +53,12 @@ const SHORT_ENV: Record<string, string> = {
 const SHORT_OPEN = /^\{(?<key>so[a-z])\}$/;
 const SHORT_CLOSE = /^\{(?<key>eo[a-z])\}$/;
 
-/** A bracket/brace section label, e.g. "[Chorus]" or "{Verse 2}". */
+/** A bracket section label, e.g. "[Chorus]" or "[Verse 2]". */
 const SECTION_LABEL =
-  /^[\[{]\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)[\s\d\w-]*[\]}]$/i;
+  /^\[\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)[\s\d\w-]*\]$/i;
+/** A brace section label carrying detail, e.g. "{Verse 1}" (not bare "{chorus}"). */
+const SECTION_LABEL_BRACE =
+  /^\{\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)[\s\d\w-]+[\s\d\w-]*\}$/i;
 
 /** True when a line opens a ChordPro section environment (long or short form). */
 export function opensEnvironment(text: string): boolean {
@@ -105,9 +108,10 @@ export function sectionHeading(text: string): string | null {
   if (comment) {
     return (comment.groups?.label ?? "").trim();
   }
-  // A pre-conversion bracket/brace label such as "[Chorus]" must not render as
-  // a chord named "Chorus".
-  if (SECTION_LABEL.test(trimmed)) {
+  // A pre-conversion bracket label such as "[Chorus]" must not render as a
+  // chord named "Chorus". A bare brace directive like "{chorus}" is NOT a
+  // label (it is the real recall-chorus directive), so it is excluded.
+  if (SECTION_LABEL.test(trimmed) || SECTION_LABEL_BRACE.test(trimmed)) {
     return trimmed.slice(1, -1).trim();
   }
   return null;

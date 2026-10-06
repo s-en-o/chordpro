@@ -154,6 +154,14 @@ describe("parseLine sections", () => {
     expect(line.text).toBe("Chorus");
   });
 
+  it("does not treat a bare brace directive as a section", () => {
+    // "{chorus}" is the real recall-chorus directive, not a label.
+    expect(sectionHeading("{chorus}")).toBeNull();
+    expect(sectionHeading("{tag}")).toBeNull();
+    // But a brace label carrying detail is a section.
+    expect(sectionHeading("{Verse 1}")).toBe("Verse 1");
+  });
+
   it("still parses a real chord line as chords", () => {
     expect(parseLine("[C]Hello").kind).toBe("chord");
   });

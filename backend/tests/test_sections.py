@@ -36,6 +36,13 @@ def test_section_label_rejects_real_chords() -> None:
         assert section_label(token) is None, token
 
 
+def test_section_label_rejects_bare_brace_directives() -> None:
+    # Bare brace forms are real ChordPro directives (recall-chorus, tag, etc.),
+    # not section labels.
+    for token in ["{chorus}", "{verse}", "{bridge}", "{tag}", "{solo}", "{coda}"]:
+        assert section_label(token) is None, token
+
+
 def test_section_label_rejects_metadata_and_plain_lyrics() -> None:
     assert section_label("{title: My Song}") is None
     assert section_label("just a lyric") is None

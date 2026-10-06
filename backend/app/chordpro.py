@@ -77,15 +77,24 @@ def section_label(text: str) -> str | None:
     match = _SECTION_LABEL.match(stripped)
     if not match:
         return None
-    inner = " ".join(match.group("inner").split()).lower()
+    inner = match.group("inner").strip()
+    # A BARE brace form like "{chorus}"/"{verse}"/"{tag}" is a real ChordPro
+    # directive (e.g. recall-chorus, or the tag metadata item), not a section
+    # label. Only a brace form carrying a label/detail ("{Verse 1}", "{Chorus 2}")
+    # is treated as a section. Bracket forms ("[Chorus]") are always labels,
+    # since a real chord would be "[C]" and not a section word.
+    is_brace = stripped.startswith("{")
+    if is_brace and " " not in inner and not any(c.isdigit() for c in inner):
+        return None
+    normalized = " ".join(inner.split()).lower()
     # A colon always separates trailing detail; a dash only when spaced, so the
     # hyphen inside "pre-chorus" survives.
-    inner = re.split(r"\s*:\s*|\s+[-–]\s+", inner)[0].strip()
+    normalized = re.split(r"\s*:\s*|\s+[-–]\s+", normalized)[0].strip()
     # Normalize "pre chorus"/"pre-chorus" and match the leading section word.
-    inner = re.sub(r"\bpre[\s-]+chorus\b", "pre-chorus", inner)
+    normalized = re.sub(r"\bpre[\s-]+chorus\b", "pre-chorus", normalized)
     for name in _SECTION_NAMES_BY_LENGTH:
-        if inner == name or inner.startswith(name + " ") or (
-            inner.startswith(name) and inner[len(name)].isdigit()
+        if normalized == name or normalized.startswith(name + " ") or (
+            normalized.startswith(name) and normalized[len(name)].isdigit()
         ):
             return name
     return None
