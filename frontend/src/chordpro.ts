@@ -92,3 +92,17 @@ export function segmentsToText(segments: Segment[]): string {
     .map((segment) => (segment.chord === null ? "" : `[${segment.chord}]`) + segment.text)
     .join("");
 }
+
+/**
+ * Return the `[start, end)` character range of a 0-based line within a text,
+ * clamped to the text's actual lines. Used to select a line in the editor.
+ */
+export function lineCharRange(text: string, line: number): [number, number] {
+  const lines = text.split("\n");
+  const target = Math.max(0, Math.min(line, lines.length - 1));
+  let start = 0;
+  for (let i = 0; i < target; i += 1) {
+    start += lines[i].length + 1;
+  }
+  return [start, start + lines[target].length];
+}

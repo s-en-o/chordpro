@@ -15,7 +15,7 @@ from app.adapters.paste import PasteTextAdapter
 from app.adapters.pdf import PdfAdapter
 from app.chordpro import serialize
 from app.models import Song
-from app.pipeline import convert_layout
+from app.pipeline import convert_layout, map_qa_to_display_lines
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_TEXT_CHARS = 1024 * 1024
@@ -76,6 +76,8 @@ async def convert(
 
     song = await run_in_threadpool(convert_layout, layout)
     _apply_overrides(song, title, artist)
+    # Map QA to display lines AFTER overrides, which may grow the header.
+    map_qa_to_display_lines(song)
     qa = asdict(song.qa)
     if used_ocr:
         qa["notes"].append(
@@ -109,6 +111,8 @@ async def convert_text(request: ConvertTextRequest) -> JSONResponse:
 
     song = await run_in_threadpool(convert_layout, layout)
     _apply_overrides(song, request.title, request.artist)
+    # Map QA to display lines AFTER overrides, which may grow the header.
+    map_qa_to_display_lines(song)
     return JSONResponse(
         status_code=200,
         content={

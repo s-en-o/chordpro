@@ -42,6 +42,9 @@ class LineLabel:
 
     line: TextLine
     kind: LineKind
+    # Position of this line within the page, used to trace output lines back to
+    # their source. Defaults to -1 for hand-built labels in tests.
+    page_index: int = -1
 
 
 def is_chord(token: str) -> bool:
@@ -101,17 +104,17 @@ def classify_page(
     no lyrics under them).
     """
     labels: list[LineLabel] = []
-    for line in page.lines:
+    for page_index, line in enumerate(page.lines):
         if not line.text.strip():
-            labels.append(LineLabel(line=line, kind="blank"))
+            labels.append(LineLabel(line=line, kind="blank", page_index=page_index))
         elif line.text.lstrip().startswith("{"):
             # A ChordPro directive like {title: ...} is metadata, not content;
             # it must not be paired with a chord or treated as a lyric.
-            labels.append(LineLabel(line=line, kind="directive"))
+            labels.append(LineLabel(line=line, kind="directive", page_index=page_index))
         elif chord_ratio(line) >= chord_threshold:
-            labels.append(LineLabel(line=line, kind="chord"))
+            labels.append(LineLabel(line=line, kind="chord", page_index=page_index))
         else:
-            labels.append(LineLabel(line=line, kind="lyric"))
+            labels.append(LineLabel(line=line, kind="lyric", page_index=page_index))
 
     median_height = _median_line_height(page)
     max_gap = gap_factor * median_height

@@ -155,6 +155,37 @@ def test_convert_text_reports_detected_metadata() -> None:
     assert "{artist:" not in body_lines
 
 
+def test_convert_text_reports_unpaired_chord_line_numbers() -> None:
+    response = client.post(
+        "/api/convert-text",
+        json={"text": "{title: T}\nC     G\nAm\n"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    # Output body lines 2 and 3 are the unpaired chord lines (header is 2
+    # lines: "{title: T}" + blank).
+    assert body["qa"]["unpaired_chord_lines"] == [2, 3]
+    lines = body["chordpro"].split("\n")
+    assert lines[2] == "[C] [G]"
+    assert lines[3] == "[Am]"
+
+
+def test_convert_text_qa_lines_account_for_title_override() -> None:
+    # Regression: the QA mapping must run after overrides, which grow the
+    # header. A typed title shifts the body down by 2 lines.
+    response = client.post(
+        "/api/convert-text",
+        json={"text": "C     G\nAm\n", "title": "Typed"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["qa"]["unpaired_chord_lines"] == [2, 3]
+    lines = body["chordpro"].split("\n")
+    assert lines[0] == "{title: Typed}"
+    assert lines[2] == "[C] [G]"
+    assert lines[3] == "[Am]"
+
+
 def test_convert_text_applies_title_override() -> None:
     response = client.post(
         "/api/convert-text",

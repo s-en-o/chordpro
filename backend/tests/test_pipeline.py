@@ -1,5 +1,5 @@
 from app.ir import LayoutDoc, Page, TextLine, TextSpan
-from app.pipeline import convert_layout
+from app.pipeline import convert_layout, map_qa_to_display_lines
 
 
 def make_line(text: str, y0: float, char_width: float = 7.2) -> TextLine:
@@ -120,3 +120,95 @@ def test_convert_layout_prefers_title_over_subtitle() -> None:
     )
     song = convert_layout(LayoutDoc(pages=[page]))
     assert song.metadata == {"title": "Main"}
+
+
+def test_qa_low_confidence_lines_are_output_line_numbers() -> None:
+    # convert_layout records source lines; map_qa_to_display_lines (which the
+    # API calls after overrides) turns them into display line numbers.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[
+            make_line("{title: T}", 0),
+            make_line("C x y", 14),
+            make_line("Hello", 28),
+        ],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    map_qa_to_display_lines(song)
+    # Header is "{title: T}" + blank line = 2 lines, so the body starts at 2.
+    assert song.qa.low_confidence_lines == [2]
+
+
+def test_qa_unpaired_chord_lines_point_at_output_lines() -> None:
+    # A chord line with no lyric beneath it becomes a chord_only line and is
+    # reported as unpaired, addressed by its output line number.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[
+            make_line("{title: T}", 0),
+            make_line("C     G", 14),
+            make_line("Am", 28),  # another chord, then end of page
+        ],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    map_qa_to_display_lines(song)
+    # Both chord lines run off the page with no lyric -> chord_only lines.
+    body = [line.text for line in song.lines]
+    assert body == ["[C] [G]", "[Am]"]
+    # With a 2-line header, the body lines are display lines 2 and 3.
+    assert song.qa.unpaired_chord_lines == [2, 3]
+
+
+def test_qa_line_numbers_span_multiple_pages() -> None:
+    # A low-confidence line on page 2 must map to the right output line,
+    # accounting for page 1's lines and the metadata header.
+    page1 = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C     G", 0), make_line("Hello world", 14)],
+    )
+    page2 = Page(
+        number=2,
+        width=600,
+        height=800,
+        lines=[make_line("C x y", 0), make_line("second line", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page1, page2]))
+    map_qa_to_display_lines(song)
+    # No metadata header here (no title), so display lines equal body lines.
+    # Body: 0 "[C]Hello [G]world", 1 "C x y", 2 "second line".
+    assert song.qa.low_confidence_lines == [1]
+
+
+def test_map_qa_accounts_for_user_title_override() -> None:
+    # A title override grows the header, so the mapping must run AFTER it.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C     G", 0), make_line("Am", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    song.metadata["title"] = "Typed"
+    map_qa_to_display_lines(song)
+    # Header "{title: Typed}" + blank = 2 lines; chord lines are body 0,1.
+    assert song.qa.unpaired_chord_lines == [2, 3]
+
+
+def test_map_qa_is_idempotent() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C     G", 0), make_line("Am", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    map_qa_to_display_lines(song)
+    first = list(song.qa.unpaired_chord_lines)
+    map_qa_to_display_lines(song)
+    assert song.qa.unpaired_chord_lines == first

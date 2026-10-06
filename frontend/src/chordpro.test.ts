@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  lineCharRange,
   parseChordPro,
   parseLine,
   segmentsToText,
@@ -101,5 +102,24 @@ describe("segmentsToText", () => {
 
   it("round-trips a lone trailing chord", () => {
     expect(segmentsToText(parseLine("[Am]").segments)).toBe("[Am]");
+  });
+});
+
+describe("lineCharRange", () => {
+  it("returns the range of the first line", () => {
+    expect(lineCharRange("abc\ndef", 0)).toEqual([0, 3]);
+  });
+
+  it("returns the range of a later line", () => {
+    // "abc\n" is 4 chars, so "def" starts at index 4.
+    expect(lineCharRange("abc\ndef", 1)).toEqual([4, 7]);
+  });
+
+  it("clamps an out-of-range line to the last line", () => {
+    expect(lineCharRange("abc\ndef", 99)).toEqual([4, 7]);
+  });
+
+  it("clamps a negative line to the first line", () => {
+    expect(lineCharRange("abc\ndef", -3)).toEqual([0, 3]);
   });
 });

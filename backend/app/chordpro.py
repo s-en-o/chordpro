@@ -93,6 +93,17 @@ def is_metadata_directive(text: str) -> bool:
     return bool(value) and key in METADATA_DIRECTIVE_KEYS
 
 
+def header_line_count(metadata: dict[str, str]) -> int:
+    """Number of lines serialize() emits before the body.
+
+    One line per non-empty metadata entry, plus a blank separator line when
+    there is any metadata. This lets QA line numbers line up with the text the
+    user sees.
+    """
+    entries = sum(1 for value in metadata.values() if value)
+    return entries + 1 if entries else 0
+
+
 def serialize(song: Song) -> str:
     """Render a Song as ChordPro text."""
     output: list[str] = []

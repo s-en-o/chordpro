@@ -88,9 +88,24 @@ def _collect_chord_stack(
     return chord_labels, trailing_blanks, index
 
 
-def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
-    """Turn classified lines into ChordPro-ready lines for one page."""
+def align_page(
+    labels: list[LineLabel],
+    qa: QAReport,
+    source_offset: int = 0,
+) -> list[SongLine]:
+    """Turn classified lines into ChordPro-ready lines for one page.
+
+    ``source_offset`` is the number of IR lines before this page, so each
+    output line can be traced back to a global source line. ``qa`` collects
+    *source* line numbers for unpaired chords; the pipeline maps them to
+    display line numbers once the final line list (and metadata) is known.
+    """
     song_lines: list[SongLine] = []
+
+    def append(kind: str, text: str, source_line: int | None) -> None:
+        """Add an output line, tracing it back to its source line."""
+        song_lines.append(SongLine(kind=kind, text=text, source_line=source_line))
+
     index = 0
     while index < len(labels):
         label = labels[index]
@@ -106,32 +121,45 @@ def align_page(labels: list[LineLabel], qa: QAReport) -> list[SongLine]:
                 # each chord line on its own and record the chords as unpaired.
                 # Interior blanks are dropped, matching the paired path.
                 for chord_label in chord_labels:
-                    song_lines.append(
-                        SongLine(kind="chord_only", text=chord_only_text(chord_label.line))
+                    append(
+                        "chord_only",
+                        chord_only_text(chord_label.line),
+                        source_offset + chord_label.page_index,
+                    )
+                    qa.unpaired_chord_lines.append(
+                        source_offset + chord_label.page_index
                     )
                     for token, _ in token_positions(chord_label.line):
                         if is_chord(token):
                             qa.unpaired_chords.append(token)
                 continue
-            song_lines.append(merge_chord_lines(chord_labels, labels[index], qa))
+            lyric_label = labels[index]
+            append(
+                "lyric",
+                merge_chord_lines(chord_labels, lyric_label, qa).text,
+                source_offset + lyric_label.page_index,
+            )
             index += 1
             for _ in trailing_blanks:
-                song_lines.append(SongLine(kind="blank", text=""))
+                append("blank", "", None)
         elif label.kind == "chord_only":
-            song_lines.append(
-                SongLine(kind="chord_only", text=chord_only_text(label.line))
+            append(
+                "chord_only",
+                chord_only_text(label.line),
+                source_offset + label.page_index,
             )
+            qa.unpaired_chord_lines.append(source_offset + label.page_index)
             for token, _ in token_positions(label.line):
                 if is_chord(token):
                     qa.unpaired_chords.append(token)
             index += 1
         elif label.kind == "blank":
-            song_lines.append(SongLine(kind="blank", text=""))
+            append("blank", "", source_offset + label.page_index)
             index += 1
         elif label.kind == "directive":
-            song_lines.append(SongLine(kind="directive", text=label.line.text))
+            append("directive", label.line.text, source_offset + label.page_index)
             index += 1
         else:
-            song_lines.append(SongLine(kind="lyric", text=label.line.text))
+            append("lyric", label.line.text, source_offset + label.page_index)
             index += 1
     return song_lines
