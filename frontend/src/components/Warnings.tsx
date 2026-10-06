@@ -50,7 +50,8 @@ export default function Warnings({ qa, onJump, jumpsDisabled = false }: Warnings
     qa.notes.length > 0 ||
     qa.unpaired_chords.length > 0 ||
     qa.low_confidence_lines.length > 0 ||
-    qa.unpaired_chord_lines.length > 0;
+    qa.unpaired_chord_lines.length > 0 ||
+    qa.section_lines.length > 0;
   if (!hasContent || dismissed) {
     return null;
   }
@@ -84,6 +85,21 @@ export default function Warnings({ qa, onJump, jumpsDisabled = false }: Warnings
               {qa.unpaired_chord_lines.map((line) => (
                 <LineChip
                   key={`uc-${line}`}
+                  line={line}
+                  onJump={onJump}
+                  disabled={jumpsDisabled}
+                />
+              ))}
+            </p>
+          )}
+          {qa.section_lines.length > 0 && (
+            <p className="flex flex-wrap items-center gap-1">
+              <span>
+                Section{qa.section_lines.length === 1 ? "" : "s"} to review:
+              </span>
+              {qa.section_lines.map((line) => (
+                <LineChip
+                  key={`sec-${line}`}
                   line={line}
                   onJump={onJump}
                   disabled={jumpsDisabled}

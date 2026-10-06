@@ -4,6 +4,7 @@ import { convertPdf, convertText, type Metadata, type QAReport } from "./api";
 import { lineCharRange } from "./chordpro";
 import ChordPreview from "./components/ChordPreview";
 import Dropzone from "./components/Dropzone";
+import SectionGuide from "./components/SectionGuide";
 import ThemeToggle from "./components/ThemeToggle";
 import Warnings from "./components/Warnings";
 
@@ -290,6 +291,8 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          <SectionGuide />
 
           {view === "edit" ? (
             <textarea

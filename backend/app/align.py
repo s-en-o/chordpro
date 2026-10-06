@@ -159,6 +159,9 @@ def align_page(
         elif label.kind == "directive":
             append("directive", label.line.text, source_offset + label.page_index)
             index += 1
+        elif label.kind == "section":
+            append("section", label.line.text, source_offset + label.page_index)
+            index += 1
         else:
             append("lyric", label.line.text, source_offset + label.page_index)
             index += 1

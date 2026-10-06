@@ -9,7 +9,7 @@
  * tested on its own.
  */
 
-export type LineKind = "chord" | "directive" | "blank";
+export type LineKind = "chord" | "directive" | "section" | "blank";
 
 export interface Segment {
   /** The chord to show above this text, or null when there is none. */
@@ -20,7 +20,7 @@ export interface Segment {
 
 export interface PreviewLine {
   kind: LineKind;
-  /** Text of a directive or blank line (used for directives). */
+  /** Text of a directive, section, or blank line. */
   text: string;
   /** Chord/lyric segments for a chord line. */
   segments: Segment[];
@@ -28,6 +28,44 @@ export interface PreviewLine {
 
 /** Matches a leading or inline "[Chord]" marker. */
 const CHORD_MARKER = /\[([^\]]*)\]/g;
+
+/** Environment open/close directives that mark a section boundary. */
+const SECTION_OPEN = /^\{start_of_[a-z_]+\s*:?\s*(?<label>[^}]*)\}$/;
+const SECTION_CLOSE = /^\{end_of_[a-z_]+\}$/;
+
+/** A bracket/brace section label, e.g. "[Chorus]" or "{Verse 2}". */
+const SECTION_LABEL =
+  /^[\[{]\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)[\s\d\w-]*[\]}]$/i;
+
+/**
+ * Turn a section directive into a human heading, or null if it is not one.
+ *
+ * ``{start_of_chorus}`` -> "Chorus"; ``{comment: Intro}`` -> "Intro";
+ * ``{start_of_chorus: Chorus 2}`` -> "Chorus 2"; ``{end_of_chorus}`` -> "".
+ */
+export function sectionHeading(text: string): string | null {
+  const trimmed = text.trim();
+  const open = SECTION_OPEN.exec(trimmed);
+  if (open) {
+    const label = (open.groups?.label ?? "").trim();
+    if (label) return label;
+    const key = trimmed.slice("{start_of_".length, trimmed.indexOf("}"));
+    return key.charAt(0).toUpperCase() + key.slice(1);
+  }
+  if (SECTION_CLOSE.test(trimmed)) {
+    return "";
+  }
+  const comment = /^\{comment\s*:?\s*(?<label>[^}]*)\}$/.exec(trimmed);
+  if (comment) {
+    return (comment.groups?.label ?? "").trim();
+  }
+  // A pre-conversion bracket/brace label such as "[Chorus]" must not render as
+  // a chord named "Chorus".
+  if (SECTION_LABEL.test(trimmed)) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return null;
+}
 
 /**
  * Parse one ChordPro line into a structure the preview can render.
@@ -40,6 +78,11 @@ export function parseLine(rawLine: string): PreviewLine {
 
   if (line.trim() === "") {
     return { kind: "blank", text: "", segments: [] };
+  }
+  const heading = sectionHeading(line);
+  if (heading !== null) {
+    // A section open/close or comment directive, or a bare "[Chorus]" label.
+    return { kind: "section", text: heading, segments: [] };
   }
   if (line.trimStart().startsWith("{")) {
     return { kind: "directive", text: line, segments: [] };

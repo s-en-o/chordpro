@@ -155,6 +155,30 @@ def test_convert_text_reports_detected_metadata() -> None:
     assert "{artist:" not in body_lines
 
 
+def test_convert_text_wraps_sections() -> None:
+    response = client.post(
+        "/api/convert-text",
+        json={"text": "[Chorus]\nSing it\n[Verse 1]\nA line\n"},
+    )
+    assert response.status_code == 200
+    text = response.json()["chordpro"]
+    assert "{start_of_chorus}" in text
+    assert "{end_of_chorus}" in text
+    assert "{start_of_verse}" in text
+    assert "{end_of_verse}" in text
+
+
+def test_convert_text_flags_empty_sections() -> None:
+    response = client.post(
+        "/api/convert-text",
+        json={"text": "[Verse]\n[Chorus]\nsing\n"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    # The empty verse's opening directive is at display line 0.
+    assert body["qa"]["section_lines"] == [0]
+
+
 def test_convert_text_reports_unpaired_chord_line_numbers() -> None:
     response = client.post(
         "/api/convert-text",

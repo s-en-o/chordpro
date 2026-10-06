@@ -4,6 +4,7 @@ import {
   lineCharRange,
   parseChordPro,
   parseLine,
+  sectionHeading,
   segmentsToText,
 } from "./chordpro";
 
@@ -86,6 +87,54 @@ describe("parseChordPro", () => {
   it("keeps blank lines between stanzas", () => {
     const lines = parseChordPro("[C]one\n\n[G]two");
     expect(lines.map((line) => line.kind)).toEqual(["chord", "blank", "chord"]);
+  });
+});
+
+describe("sectionHeading", () => {
+  it("names a bare environment from its key", () => {
+    expect(sectionHeading("{start_of_chorus}")).toBe("Chorus");
+    expect(sectionHeading("{start_of_verse}")).toBe("Verse");
+  });
+
+  it("uses an explicit environment label", () => {
+    expect(sectionHeading("{start_of_chorus: Chorus 2}")).toBe("Chorus 2");
+  });
+
+  it("returns an empty string for a close directive", () => {
+    expect(sectionHeading("{end_of_chorus}")).toBe("");
+  });
+
+  it("names a comment directive", () => {
+    expect(sectionHeading("{comment: Intro}")).toBe("Intro");
+  });
+
+  it("recognizes a pre-conversion bracket label (not a chord)", () => {
+    expect(sectionHeading("[Chorus]")).toBe("Chorus");
+    expect(sectionHeading("[Verse 2]")).toBe("Verse 2");
+  });
+
+  it("returns null for a real chord and for lyrics", () => {
+    expect(sectionHeading("[C]")).toBeNull();
+    expect(sectionHeading("[Am]")).toBeNull();
+    expect(sectionHeading("Hello world")).toBeNull();
+  });
+});
+
+describe("parseLine sections", () => {
+  it("marks an environment directive as a section", () => {
+    const line = parseLine("{start_of_chorus}");
+    expect(line.kind).toBe("section");
+    expect(line.text).toBe("Chorus");
+  });
+
+  it("does not treat a bare '[Chorus]' as a chord", () => {
+    const line = parseLine("[Chorus]");
+    expect(line.kind).toBe("section");
+    expect(line.text).toBe("Chorus");
+  });
+
+  it("still parses a real chord line as chords", () => {
+    expect(parseLine("[C]Hello").kind).toBe("chord");
   });
 });
 

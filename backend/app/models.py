@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 # The kinds of line a converted song can contain.
-LineKind = Literal["lyric", "chord_only", "directive", "blank"]
+LineKind = Literal["lyric", "chord_only", "directive", "blank", "section"]
 
 
 @dataclass
@@ -32,6 +32,8 @@ class QAReport:
     unpaired_chords: list[str] = field(default_factory=list)
     low_confidence_lines: list[int] = field(default_factory=list)
     unpaired_chord_lines: list[int] = field(default_factory=list)
+    # Sections that likely need review (e.g. an empty section with no content).
+    section_lines: list[int] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
 

@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from app.chordpro import section_label
 from app.ir import Page, TextLine
 
 # A permissive chord grammar: root note, optional accidental, optional
@@ -33,7 +34,7 @@ _TRAILING_PUNCTUATION = ",.;:"
 DEFAULT_CHORD_THRESHOLD = 0.5
 DEFAULT_GAP_FACTOR = 2.5
 
-LineKind = Literal["chord", "chord_only", "lyric", "blank", "directive"]
+LineKind = Literal["chord", "chord_only", "lyric", "blank", "directive", "section"]
 
 
 @dataclass
@@ -111,6 +112,10 @@ def classify_page(
             # A ChordPro directive like {title: ...} is metadata, not content;
             # it must not be paired with a chord or treated as a lyric.
             labels.append(LineLabel(line=line, kind="directive", page_index=page_index))
+        elif section_label(line.text) is not None:
+            # A section label like [Chorus] or [Verse 2] is a heading, not a
+            # chord or a lyric line.
+            labels.append(LineLabel(line=line, kind="section", page_index=page_index))
         elif chord_ratio(line) >= chord_threshold:
             labels.append(LineLabel(line=line, kind="chord", page_index=page_index))
         else:
