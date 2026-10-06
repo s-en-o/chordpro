@@ -6,16 +6,27 @@ interface WarningsProps {
   qa: QAReport;
   /** Jump to (and highlight) a display line number in the output. */
   onJump: (line: number) => void;
+  /** True once the output has been edited, so line numbers are stale. */
+  jumpsDisabled?: boolean;
 }
 
 /** A clickable "line N" chip that jumps to that output line. */
-function LineChip({ line, onJump }: { line: number; onJump: (n: number) => void }) {
+function LineChip({
+  line,
+  onJump,
+  disabled,
+}: {
+  line: number;
+  onJump: (n: number) => void;
+  disabled: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={() => onJump(line)}
-      className="rounded border border-amber-400 bg-amber-100 px-1.5 py-0.5 font-mono text-xs text-amber-900 transition hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800"
-      title={`Jump to line ${line}`}
+      disabled={disabled}
+      className="rounded border border-amber-400 bg-amber-100 px-1.5 py-0.5 font-mono text-xs text-amber-900 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800"
+      title={disabled ? "Line numbers are stale after editing" : `Jump to line ${line}`}
     >
       line {line}
     </button>
@@ -27,7 +38,7 @@ function LineChip({ line, onJump }: { line: number; onJump: (n: number) => void 
  * unpaired chords, and low-confidence lines. Line references are clickable,
  * so the user can jump straight to each spot in the output.
  */
-export default function Warnings({ qa, onJump }: WarningsProps) {
+export default function Warnings({ qa, onJump, jumpsDisabled = false }: WarningsProps) {
   const [dismissed, setDismissed] = useState(false);
 
   // A fresh conversion (new qa object) should surface its warnings again.
@@ -37,6 +48,7 @@ export default function Warnings({ qa, onJump }: WarningsProps) {
 
   const hasContent =
     qa.notes.length > 0 ||
+    qa.unpaired_chords.length > 0 ||
     qa.low_confidence_lines.length > 0 ||
     qa.unpaired_chord_lines.length > 0;
   if (!hasContent || dismissed) {
@@ -55,7 +67,12 @@ export default function Warnings({ qa, onJump }: WarningsProps) {
             <p className="flex flex-wrap items-center gap-1">
               <span>Low-confidence lines:</span>
               {qa.low_confidence_lines.map((line) => (
-                <LineChip key={`lc-${line}`} line={line} onJump={onJump} />
+                <LineChip
+                  key={`lc-${line}`}
+                  line={line}
+                  onJump={onJump}
+                  disabled={jumpsDisabled}
+                />
               ))}
             </p>
           )}
@@ -65,7 +82,12 @@ export default function Warnings({ qa, onJump }: WarningsProps) {
                 Unpaired chord{qa.unpaired_chord_lines.length === 1 ? "" : "s"}:
               </span>
               {qa.unpaired_chord_lines.map((line) => (
-                <LineChip key={`uc-${line}`} line={line} onJump={onJump} />
+                <LineChip
+                  key={`uc-${line}`}
+                  line={line}
+                  onJump={onJump}
+                  disabled={jumpsDisabled}
+                />
               ))}
             </p>
           )}

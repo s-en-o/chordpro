@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { convertPdf, convertText, type Metadata, type QAReport } from "./api";
+import { lineCharRange } from "./chordpro";
 import ChordPreview from "./components/ChordPreview";
 import Dropzone from "./components/Dropzone";
 import ThemeToggle from "./components/ThemeToggle";
@@ -24,6 +25,7 @@ export default function App() {
   const [view, setView] = useState<OutputView>("edit");
   const [copied, setCopied] = useState<boolean>(false);
   const [highlightLine, setHighlightLine] = useState<number | null>(null);
+  const [edited, setEdited] = useState<boolean>(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
@@ -39,6 +41,14 @@ export default function App() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  // Clear any pending timers when the component unmounts.
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current);
+      if (highlightTimer.current !== null) clearTimeout(highlightTimer.current);
+    };
+  }, []);
+
   async function handleConvert() {
     setBusy(true);
     setError("");
@@ -49,6 +59,7 @@ export default function App() {
           : await convertText(pastText, { title, artist });
       setChordpro(result.chordpro);
       setQa(result.qa);
+      setEdited(false);
       // Remember what was detected so the download name survives clearing the
       // input fields below.
       setSuggested(result.metadata);
@@ -101,6 +112,7 @@ export default function App() {
     setCopied(false);
     setSuggested({});
     setHighlightLine(null);
+    setEdited(false);
   }
 
   /**
@@ -111,15 +123,11 @@ export default function App() {
   function jumpToLine(line: number) {
     setHighlightLine(line);
     if (editRef.current) {
-      const lines = chordpro.split("\n");
-      const target = Math.max(0, Math.min(line, lines.length - 1));
-      let charStart = 0;
-      for (let i = 0; i < target; i += 1) {
-        charStart += lines[i].length + 1;
-      }
       const field = editRef.current;
+      const target = Math.max(0, Math.min(line, chordpro.split("\n").length - 1));
+      const [start, end] = lineCharRange(chordpro, line);
       field.focus();
-      field.setSelectionRange(charStart, charStart + lines[target].length);
+      field.setSelectionRange(start, end);
       // Scroll so the target line sits near the middle of the textarea.
       const lineHeight = parseFloat(getComputedStyle(field).lineHeight) || 20;
       field.scrollTop = Math.max(0, target * lineHeight - field.clientHeight / 2);
@@ -287,7 +295,12 @@ export default function App() {
             <textarea
               ref={editRef}
               value={chordpro}
-              onChange={(event) => setChordpro(event.target.value)}
+              onChange={(event) => {
+                setChordpro(event.target.value);
+                // Line numbers in the QA report no longer match an edited
+                // document, so the jump chips are disabled.
+                setEdited(true);
+              }}
               placeholder="Converted ChordPro will appear here."
               className="h-[480px] w-full resize-y rounded-lg border border-slate-200 bg-white p-3 font-mono text-sm outline-none focus:border-brand-500 dark:border-slate-800 dark:bg-slate-900"
             />
@@ -320,7 +333,7 @@ export default function App() {
         </section>
       </div>
 
-      {qa && <Warnings qa={qa} onJump={jumpToLine} />}
+      {qa && <Warnings qa={qa} onJump={jumpToLine} jumpsDisabled={edited} />}
     </div>
   );
 }

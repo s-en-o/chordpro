@@ -18,15 +18,20 @@ def _is_lifted_directive(line: SongLine) -> bool:
 
 
 def convert_layout(layout: LayoutDoc) -> Song:
-    """Run classification and alignment over every page, then attach metadata."""
+    """Run classification and alignment over every page, then attach metadata.
+
+    The QA line references are recorded as *source* line numbers here; call
+    :func:`map_qa_to_display_lines` once the metadata (and any user overrides)
+    are final to turn them into display line numbers.
+    """
     qa = QAReport()
     song_lines: list[SongLine] = []
-    # Global source line numbers flagged as low-confidence (across all pages).
-    low_confidence_sources: list[int] = []
     source_offset = 0
     for page in layout.pages:
+        # Low-confidence lines are recorded as source line numbers and mapped
+        # to display numbers later, once the metadata header is final.
         for line_index in low_confidence_line_indices(page):
-            low_confidence_sources.append(source_offset + line_index)
+            qa.low_confidence_lines.append(source_offset + line_index)
         labels = classify_page(page)
         song_lines.extend(align_page(labels, qa, source_offset=source_offset))
         source_offset += len(page.lines)
@@ -38,23 +43,30 @@ def convert_layout(layout: LayoutDoc) -> Song:
     # An explicit {title: ...} / {artist: ...} directive wins over inference.
     metadata.update(extract_directives(layout))
 
-    # Translate source line numbers into display line numbers (body index plus
-    # the metadata header that serialize() emits).
-    header = header_line_count(metadata)
+    return Song(lines=song_lines, metadata=metadata, qa=qa)
+
+
+def map_qa_to_display_lines(song: Song) -> None:
+    """Convert QA *source* line numbers into display line numbers, in place.
+
+    Must run after metadata is final (including user overrides), because the
+    metadata header shifts every body line down. ``qa.unpaired_chord_lines``
+    and ``qa.low_confidence_lines`` hold source line numbers on entry and
+    display line numbers on return.
+    """
+    header = header_line_count(song.metadata)
     source_to_body = {
         line.source_line: body_index
-        for body_index, line in enumerate(song_lines)
+        for body_index, line in enumerate(song.lines)
         if line.source_line is not None
     }
-    qa.low_confidence_lines = [
+    song.qa.low_confidence_lines = [
         header + source_to_body[source]
-        for source in low_confidence_sources
+        for source in song.qa.low_confidence_lines
         if source in source_to_body
     ]
-    qa.unpaired_chord_lines = [
+    song.qa.unpaired_chord_lines = [
         header + source_to_body[source]
-        for source in qa.unpaired_chord_lines
+        for source in song.qa.unpaired_chord_lines
         if source in source_to_body
     ]
-
-    return Song(lines=song_lines, metadata=metadata, qa=qa)
