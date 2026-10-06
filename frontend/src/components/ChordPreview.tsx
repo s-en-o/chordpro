@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import { parseChordPro, type PreviewLine } from "../chordpro";
+import { closesEnvironment, opensEnvironment, parseChordPro, type PreviewLine } from "../chordpro";
 
 interface ChordPreviewProps {
   chordpro: string;
@@ -8,10 +8,21 @@ interface ChordPreviewProps {
   highlightLine: number | null;
 }
 
-/** Render one parsed line: directives as headings, chords above lyrics. */
-function PreviewLineView({ line }: { line: PreviewLine }) {
+/** Render one parsed line: sections/directives as headings, chords above lyrics. */
+function PreviewLineView({ line, indented }: { line: PreviewLine; indented: boolean }) {
   if (line.kind === "blank") {
     return <div className="h-4" />;
+  }
+  if (line.kind === "section") {
+    if (line.closes || line.text === "") {
+      // A closing directive just ends the indented block; nothing to show.
+      return null;
+    }
+    return (
+      <div className="mt-4 font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
+        {line.text}
+      </div>
+    );
   }
   if (line.kind === "directive") {
     return (
@@ -21,7 +32,7 @@ function PreviewLineView({ line }: { line: PreviewLine }) {
     );
   }
   return (
-    <div className="flex flex-wrap items-end">
+    <div className={`flex flex-wrap items-end ${indented ? "pl-4" : ""}`}>
       {line.segments.map((segment, index) => (
         <span key={index} className="inline-flex flex-col">
           {segment.chord !== null && (
@@ -61,24 +72,36 @@ export default function ChordPreview({ chordpro, highlightLine }: ChordPreviewPr
   }
 
   const lines = parseChordPro(chordpro);
+  // Track whether we are inside a section environment so its body can indent.
+  let depth = 0;
   return (
     <div
       ref={containerRef}
       className="h-[480px] overflow-auto rounded-lg border border-slate-200 bg-white p-4 font-mono text-sm dark:border-slate-800 dark:bg-slate-900"
     >
-      {lines.map((line, index) => (
-        <div
-          key={index}
-          data-line={index}
-          className={
-            index === highlightLine
-              ? "-mx-2 rounded bg-amber-100 px-2 dark:bg-amber-900/50"
-              : ""
-          }
-        >
-          <PreviewLineView line={line} />
-        </div>
-      ))}
+      {lines.map((line, index) => {
+        if (line.kind === "section" && line.opens) {
+          depth += 1;
+        }
+        const indented = depth > 0 && line.kind !== "section";
+        const element = (
+          <div
+            key={index}
+            data-line={index}
+            className={
+              index === highlightLine
+                ? "-mx-2 rounded bg-amber-100 px-2 dark:bg-amber-900/50"
+                : ""
+            }
+          >
+            <PreviewLineView line={line} indented={indented} />
+          </div>
+        );
+        if (line.kind === "section" && line.closes) {
+          depth = Math.max(0, depth - 1);
+        }
+        return element;
+      })}
     </div>
   );
 }

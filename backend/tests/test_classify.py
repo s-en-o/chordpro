@@ -113,6 +113,28 @@ def test_classify_does_not_merge_chord_into_directive() -> None:
     assert [label.kind for label in labels] == ["chord_only", "directive", "lyric"]
 
 
+def test_classify_marks_section_labels() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("[Chorus]", 0), make_line("Hello world", 14)],
+    )
+    labels = classify_page(page)
+    assert [label.kind for label in labels] == ["section", "lyric"]
+
+
+def test_classify_does_not_treat_chords_as_sections() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("C     G", 0), make_line("Hello world", 14)],
+    )
+    labels = classify_page(page)
+    assert [label.kind for label in labels] == ["chord", "lyric"]
+
+
 def test_classify_keeps_stacked_chord_lines() -> None:
     page = Page(
         number=1,

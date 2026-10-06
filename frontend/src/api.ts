@@ -4,6 +4,8 @@ export interface QAReport {
   low_confidence_lines: number[];
   /** Display line numbers of chord-only (unpaired) lines. */
   unpaired_chord_lines: number[];
+  /** Display line numbers of sections that may need review (e.g. empty). */
+  section_lines: number[];
   notes: string[];
 }
 

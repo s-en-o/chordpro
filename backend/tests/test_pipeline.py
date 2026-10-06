@@ -122,6 +122,128 @@ def test_convert_layout_prefers_title_over_subtitle() -> None:
     assert song.metadata == {"title": "Main"}
 
 
+def test_sections_wrap_chorus_in_environment() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[
+            make_line("[Chorus]", 0),
+            make_line("Sing it now", 14),
+            make_line("[Verse 1]", 28),
+            make_line("A verse line", 42),
+        ],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert [line.text for line in song.lines] == [
+        "{start_of_chorus}",
+        "Sing it now",
+        "{end_of_chorus}",
+        "{start_of_verse}",
+        "A verse line",
+        "{end_of_verse}",
+    ]
+
+
+def test_brace_form_section_label_is_wrapped() -> None:
+    # Regression: {Verse 1} was classified as a directive and never wrapped.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{Verse 1}", 0), make_line("A verse line", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert [line.text for line in song.lines] == [
+        "{start_of_verse}",
+        "A verse line",
+        "{end_of_verse}",
+    ]
+
+
+def test_section_label_with_detail_still_wraps() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("[Outro tag]", 0), make_line("bye", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert song.lines[0].text == "{comment: Outro tag}"
+
+
+def test_bare_brace_directive_is_left_alone() -> None:
+    # "{chorus}" is the real recall-chorus directive, not a section label.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{chorus}", 0), make_line("sing", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert [line.text for line in song.lines] == ["{chorus}", "sing"]
+
+
+def test_section_without_environment_becomes_comment() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("[Intro]", 0), make_line("la la", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert [line.text for line in song.lines] == ["{comment: Intro}", "la la"]
+
+
+def test_section_at_end_of_song_is_closed() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("[Bridge]", 0), make_line("bridge line", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert song.lines[-1].text == "{end_of_bridge}"
+
+
+def test_empty_section_is_flagged_for_review() -> None:
+    # "[Verse]" immediately followed by "[Chorus]" -> an empty verse, which we
+    # flag so the user can fix it.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[
+            make_line("[Verse]", 0),
+            make_line("[Chorus]", 14),
+            make_line("sing", 28),
+        ],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    map_qa_to_display_lines(song)
+    # Output: {sov}{eov} {soc} sing {eoc}; the verse lines are empty.
+    assert song.qa.section_lines == [0]
+
+
+def test_existing_directives_are_not_double_wrapped() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[
+            make_line("{start_of_chorus}", 0),
+            make_line("sing", 14),
+            make_line("{end_of_chorus}", 28),
+        ],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert [line.text for line in song.lines] == [
+        "{start_of_chorus}",
+        "sing",
+        "{end_of_chorus}",
+    ]
+
+
 def test_qa_low_confidence_lines_are_output_line_numbers() -> None:
     # convert_layout records source lines; map_qa_to_display_lines (which the
     # API calls after overrides) turns them into display line numbers.

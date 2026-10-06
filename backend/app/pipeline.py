@@ -6,6 +6,8 @@ from app.chordpro import (
     guess_metadata,
     header_line_count,
     is_metadata_directive,
+    section_label,
+    section_directives,
 )
 from app.classify import classify_page, low_confidence_line_indices
 from app.ir import LayoutDoc
@@ -15,6 +17,44 @@ from app.models import QAReport, Song, SongLine
 def _is_lifted_directive(line: SongLine) -> bool:
     """Return True when a directive line was lifted into metadata."""
     return line.kind == "directive" and is_metadata_directive(line.text)
+
+
+def _wrap_sections(song_lines: list[SongLine], qa: QAReport) -> list[SongLine]:
+    """Replace section markers with ChordPro environment open/close directives.
+
+    A section runs from its label to the next section (or the end of the song).
+    verse/chorus/bridge become bare environments; other sections become a
+    single ``{comment: ...}`` line. An empty section (a label immediately
+    followed by another label, or nothing) is still emitted but flagged in
+    ``qa.section_lines`` for the user to review.
+    """
+    output: list[SongLine] = []
+    open_sections: list[tuple[str, int, int | None]] = []  # (close, open index, source)
+
+    def close_open_sections() -> None:
+        while open_sections:
+            close_text, open_index, source = open_sections.pop()
+            output.append(SongLine(kind="directive", text=close_text))
+            # Flag the opening line if the section has no body between it and
+            # the close directive we just added.
+            if len(output) - open_index <= 2 and source is not None:
+                qa.section_lines.append(source)
+
+    for line in song_lines:
+        if line.kind != "section":
+            output.append(line)
+            continue
+
+        close_open_sections()
+        open_text, close_text = section_directives(line.text)
+        output.append(
+            SongLine(kind="directive", text=open_text, source_line=line.source_line)
+        )
+        if close_text is not None:
+            open_sections.append((close_text, len(output) - 1, line.source_line))
+
+    close_open_sections()
+    return output
 
 
 def convert_layout(layout: LayoutDoc) -> Song:
@@ -38,6 +78,9 @@ def convert_layout(layout: LayoutDoc) -> Song:
 
     # Drop title/artist directives from the body; they move into metadata.
     song_lines = [line for line in song_lines if not _is_lifted_directive(line)]
+
+    # Turn section labels into ChordPro environment directives.
+    song_lines = _wrap_sections(song_lines, qa)
 
     metadata = guess_metadata(layout)
     # An explicit {title: ...} / {artist: ...} directive wins over inference.
@@ -73,5 +116,10 @@ def map_qa_to_display_lines(song: Song) -> None:
     song.qa.unpaired_chord_lines = [
         header + source_to_body[source]
         for source in song.qa.unpaired_chord_lines
+        if source in source_to_body
+    ]
+    song.qa.section_lines = [
+        header + source_to_body[source]
+        for source in song.qa.section_lines
         if source in source_to_body
     ]

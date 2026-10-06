@@ -36,6 +36,95 @@ _PLACEHOLDER_VALUES = frozenset(
 # so a line containing two directives is not mis-parsed.
 _DIRECTIVE = re.compile(r"^\{(?P<key>[a-zA-Z_]+)\s*:\s*(?P<value>[^}]*)\}\s*$")
 
+# A section label like "[Chorus]", "{Verse 2}", "[Bridge - Sax break]". We
+# capture the whole contents, then normalize in code (so "Pre-Chorus" survives).
+_SECTION_LABEL = re.compile(r"^[\[{]\s*(?P<inner>.+?)\s*[\]}]\s*$")
+
+# Section names we recognize as sections (not chords or lyrics). Keys are the
+# normalized name; values are the ChordPro environment name when one exists,
+# or None when the section has no environment and should become a comment.
+_SECTION_ENVIRONMENTS: dict[str, str | None] = {
+    "verse": "verse",
+    "chorus": "chorus",
+    "bridge": "bridge",
+    "intro": None,
+    "outro": None,
+    "solo": None,
+    "instrumental": None,
+    "interlude": None,
+    "pre-chorus": None,
+    "tag": None,
+    "coda": None,
+    "middle": None,
+    "refrain": None,
+}
+
+
+def section_label(text: str) -> str | None:
+    """Return the normalized section name for a label line, else None.
+
+    Recognizes bracket/brace labels like ``[Chorus]``, ``{Verse 2}``,
+    ``[Bridge - Sax break]`` and ``[Outro tag]``. Real chords (``[C]``,
+    ``[Am]``), metadata directives (``{title: ...}``) and ordinary lyrics
+    return None. Any trailing detail after the section name is ignored.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return None
+    # A directive with a colon and value is metadata, never a section label.
+    if ":" in stripped and "{" in stripped:
+        return None
+    match = _SECTION_LABEL.match(stripped)
+    if not match:
+        return None
+    inner = match.group("inner").strip()
+    # A BARE brace form like "{chorus}"/"{verse}"/"{tag}" is a real ChordPro
+    # directive (e.g. recall-chorus, or the tag metadata item), not a section
+    # label. Only a brace form carrying a label/detail ("{Verse 1}", "{Chorus 2}")
+    # is treated as a section. Bracket forms ("[Chorus]") are always labels,
+    # since a real chord would be "[C]" and not a section word.
+    is_brace = stripped.startswith("{")
+    if is_brace and not any(c.isspace() or c.isdigit() for c in inner):
+        return None
+    normalized = " ".join(inner.split()).lower()
+    # A colon always separates trailing detail; a dash only when spaced, so the
+    # hyphen inside "pre-chorus" survives.
+    normalized = re.split(r"\s*:\s*|\s+[-–]\s+", normalized)[0].strip()
+    # Normalize "pre chorus"/"pre-chorus" and match the leading section word.
+    normalized = re.sub(r"\bpre[\s-]+chorus\b", "pre-chorus", normalized)
+    for name in _SECTION_NAMES_BY_LENGTH:
+        if normalized == name or normalized.startswith(name + " ") or (
+            normalized.startswith(name) and normalized[len(name)].isdigit()
+        ):
+            return name
+    return None
+
+
+# Section names sorted longest-first so "pre-chorus" matches before "chorus".
+_SECTION_NAMES_BY_LENGTH = sorted(_SECTION_ENVIRONMENTS, key=len, reverse=True)
+
+
+def section_directives(text: str) -> tuple[str, str | None]:
+    """Return ``(open, close)`` ChordPro directives for a section label.
+
+    verse/chorus/bridge become bare environments (``{start_of_verse}`` /
+    ``{end_of_verse}``). Sections with no ChordPro environment become a single
+    ``{comment: <label>}`` line, with no close directive.
+    """
+    name = section_label(text)
+    if name is None:
+        raise ValueError(f"not a section label: {text!r}")
+    environment = _SECTION_ENVIRONMENTS[name]
+    if environment is None:
+        label_text = _label_display_text(text)
+        return (f"{{comment: {label_text}}}", None)
+    return (f"{{start_of_{environment}}}", f"{{end_of_{environment}}}")
+
+
+def _label_display_text(text: str) -> str:
+    """Return the inner text of a section label, e.g. "[Outro]" -> "Outro"."""
+    return text.strip()[1:-1].strip()
+
 # Keys that map to a song's title. An explicit title/t wins over a subtitle.
 _TITLE_KEYS = ("title", "t")
 # Keys that map to a song's artist.
@@ -204,6 +293,9 @@ def _largest_text_first_page(layout: LayoutDoc) -> str:
     best_text = ""
     best_size = 0.0
     for line in layout.pages[0].lines:
+        if section_label(line.text) is not None:
+            # A section heading is not the song title.
+            continue
         for span in line.spans:
             size = span.size or 0.0
             if size > best_size and span.text.strip():

@@ -4,6 +4,7 @@ import {
   lineCharRange,
   parseChordPro,
   parseLine,
+  sectionHeading,
   segmentsToText,
 } from "./chordpro";
 
@@ -86,6 +87,83 @@ describe("parseChordPro", () => {
   it("keeps blank lines between stanzas", () => {
     const lines = parseChordPro("[C]one\n\n[G]two");
     expect(lines.map((line) => line.kind)).toEqual(["chord", "blank", "chord"]);
+  });
+});
+
+describe("sectionHeading", () => {
+  it("names a bare environment from its key", () => {
+    expect(sectionHeading("{start_of_chorus}")).toBe("Chorus");
+    expect(sectionHeading("{start_of_verse}")).toBe("Verse");
+  });
+
+  it("uses an explicit environment label", () => {
+    expect(sectionHeading("{start_of_chorus: Chorus 2}")).toBe("Chorus 2");
+  });
+
+  it("returns an empty string for a close directive", () => {
+    expect(sectionHeading("{end_of_chorus}")).toBe("");
+  });
+
+  it("names a comment directive", () => {
+    expect(sectionHeading("{comment: Intro}")).toBe("Intro");
+  });
+
+  it("recognizes a pre-conversion bracket label (not a chord)", () => {
+    expect(sectionHeading("[Chorus]")).toBe("Chorus");
+    expect(sectionHeading("[Verse 2]")).toBe("Verse 2");
+  });
+
+  it("returns null for a real chord and for lyrics", () => {
+    expect(sectionHeading("[C]")).toBeNull();
+    expect(sectionHeading("[Am]")).toBeNull();
+    expect(sectionHeading("Hello world")).toBeNull();
+  });
+});
+
+describe("parseLine sections", () => {
+  it("marks an environment directive as a section", () => {
+    const line = parseLine("{start_of_chorus}");
+    expect(line.kind).toBe("section");
+    expect(line.text).toBe("Chorus");
+    expect(line.opens).toBe(true);
+    expect(line.closes).toBeFalsy();
+  });
+
+  it("marks a closing directive with closes=true", () => {
+    const line = parseLine("{end_of_chorus}");
+    expect(line.kind).toBe("section");
+    expect(line.closes).toBe(true);
+  });
+
+  it("supports short forms {soc}/{eoc}", () => {
+    expect(parseLine("{soc}").opens).toBe(true);
+    expect(parseLine("{eoc}").closes).toBe(true);
+  });
+
+  it("does not treat {comment_italic: ...} as a section comment", () => {
+    expect(sectionHeading("{comment_italic: softly}")).toBeNull();
+  });
+
+  it("treats {comment: X} as a section heading", () => {
+    expect(sectionHeading("{comment: Intro}")).toBe("Intro");
+  });
+
+  it("does not treat a bare '[Chorus]' as a chord", () => {
+    const line = parseLine("[Chorus]");
+    expect(line.kind).toBe("section");
+    expect(line.text).toBe("Chorus");
+  });
+
+  it("does not treat a bare brace directive as a section", () => {
+    // "{chorus}" is the real recall-chorus directive, not a label.
+    expect(sectionHeading("{chorus}")).toBeNull();
+    expect(sectionHeading("{tag}")).toBeNull();
+    // But a brace label carrying detail is a section.
+    expect(sectionHeading("{Verse 1}")).toBe("Verse 1");
+  });
+
+  it("still parses a real chord line as chords", () => {
+    expect(parseLine("[C]Hello").kind).toBe("chord");
   });
 });
 
