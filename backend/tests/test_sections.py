@@ -24,6 +24,13 @@ def test_section_label_normalizes_pre_chorus() -> None:
     assert section_label("[Pre Chorus]") == "pre-chorus"
 
 
+def test_section_label_ignores_colon_and_tag_detail() -> None:
+    assert section_label("[Intro: guitar]") == "intro"
+    assert section_label("[Verse: 2]") == "verse"
+    assert section_label("[Outro tag]") == "outro"
+    assert section_label("[Chorus x2]") == "chorus"
+
+
 def test_section_label_rejects_real_chords() -> None:
     for token in ["[C]", "[Am]", "[G7]", "{chord}"]:
         assert section_label(token) is None, token

@@ -63,9 +63,10 @@ _SECTION_ENVIRONMENTS: dict[str, str | None] = {
 def section_label(text: str) -> str | None:
     """Return the normalized section name for a label line, else None.
 
-    Recognizes bracket/brace labels like ``[Chorus]``, ``{Verse 2}`` and
-    ``[Bridge - Sax break]``. Real chords (``[C]``, ``[Am]``), metadata
-    directives (``{title: ...}``) and ordinary lyrics return None.
+    Recognizes bracket/brace labels like ``[Chorus]``, ``{Verse 2}``,
+    ``[Bridge - Sax break]`` and ``[Outro tag]``. Real chords (``[C]``,
+    ``[Am]``), metadata directives (``{title: ...}``) and ordinary lyrics
+    return None. Any trailing detail after the section name is ignored.
     """
     stripped = text.strip()
     if not stripped:
@@ -76,15 +77,22 @@ def section_label(text: str) -> str | None:
     match = _SECTION_LABEL.match(stripped)
     if not match:
         return None
-    inner = " ".join(match.group("inner").split())
-    # Normalize: lowercase, and turn "pre chorus"/"pre-chorus" into "pre-chorus".
-    lowered = inner.lower()
-    lowered = re.sub(r"\bpre[\s-]+chorus\b", "pre-chorus", lowered)
-    # Take the leading section word(s), ignoring a version number or detail.
-    lowered = re.sub(r"\s*\d+.*$", "", lowered).strip()
-    # Also drop any trailing " - detail" / ": detail" / " chorus 2" noise.
-    lowered = re.split(r"\s[-–:]\s", lowered)[0].strip()
-    return lowered if lowered in _SECTION_ENVIRONMENTS else None
+    inner = " ".join(match.group("inner").split()).lower()
+    # A colon always separates trailing detail; a dash only when spaced, so the
+    # hyphen inside "pre-chorus" survives.
+    inner = re.split(r"\s*:\s*|\s+[-–]\s+", inner)[0].strip()
+    # Normalize "pre chorus"/"pre-chorus" and match the leading section word.
+    inner = re.sub(r"\bpre[\s-]+chorus\b", "pre-chorus", inner)
+    for name in _SECTION_NAMES_BY_LENGTH:
+        if inner == name or inner.startswith(name + " ") or (
+            inner.startswith(name) and inner[len(name)].isdigit()
+        ):
+            return name
+    return None
+
+
+# Section names sorted longest-first so "pre-chorus" matches before "chorus".
+_SECTION_NAMES_BY_LENGTH = sorted(_SECTION_ENVIRONMENTS, key=len, reverse=True)
 
 
 def section_directives(text: str) -> tuple[str, str | None]:
@@ -276,6 +284,9 @@ def _largest_text_first_page(layout: LayoutDoc) -> str:
     best_text = ""
     best_size = 0.0
     for line in layout.pages[0].lines:
+        if section_label(line.text) is not None:
+            # A section heading is not the song title.
+            continue
         for span in line.spans:
             size = span.size or 0.0
             if size > best_size and span.text.strip():

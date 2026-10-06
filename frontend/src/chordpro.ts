@@ -24,6 +24,10 @@ export interface PreviewLine {
   text: string;
   /** Chord/lyric segments for a chord line. */
   segments: Segment[];
+  /** For a section line: true if it opens an environment. */
+  opens?: boolean;
+  /** For a section line: true if it closes an environment. */
+  closes?: boolean;
 }
 
 /** Matches a leading or inline "[Chord]" marker. */
@@ -33,9 +37,41 @@ const CHORD_MARKER = /\[([^\]]*)\]/g;
 const SECTION_OPEN = /^\{start_of_[a-z_]+\s*:?\s*(?<label>[^}]*)\}$/;
 const SECTION_CLOSE = /^\{end_of_[a-z_]+\}$/;
 
+// Short forms, e.g. {soc}/{eoc}. Map to their long names so headings are nice.
+const SHORT_ENV: Record<string, string> = {
+  soc: "chorus",
+  eoc: "chorus",
+  sov: "verse",
+  eov: "verse",
+  sob: "bridge",
+  eob: "bridge",
+  sot: "tab",
+  eot: "tab",
+  sog: "grid",
+  eog: "grid",
+};
+const SHORT_OPEN = /^\{(?<key>so[a-z])\}$/;
+const SHORT_CLOSE = /^\{(?<key>eo[a-z])\}$/;
+
 /** A bracket/brace section label, e.g. "[Chorus]" or "{Verse 2}". */
 const SECTION_LABEL =
   /^[\[{]\s*(intro|verse|chorus|bridge|pre[\s-]?chorus|outro|solo|instrumental|interlude|tag|coda|middle|refrain)[\s\d\w-]*[\]}]$/i;
+
+/** True when a line opens a ChordPro section environment (long or short form). */
+export function opensEnvironment(text: string): boolean {
+  const trimmed = text.trim();
+  if (/^\{start_of_[a-z_]+\s*:?\s*[^}]*\}$/.test(trimmed)) return true;
+  const short = SHORT_OPEN.exec(trimmed);
+  return Boolean(short && SHORT_ENV[short.groups?.key ?? ""]);
+}
+
+/** True when a line closes a ChordPro section environment (long or short form). */
+export function closesEnvironment(text: string): boolean {
+  const trimmed = text.trim();
+  if (/^\{end_of_[a-z_]+\}$/.test(trimmed)) return true;
+  const short = SHORT_CLOSE.exec(trimmed);
+  return Boolean(short && SHORT_ENV[short.groups?.key ?? ""]);
+}
 
 /**
  * Turn a section directive into a human heading, or null if it is not one.
@@ -55,7 +91,17 @@ export function sectionHeading(text: string): string | null {
   if (SECTION_CLOSE.test(trimmed)) {
     return "";
   }
-  const comment = /^\{comment\s*:?\s*(?<label>[^}]*)\}$/.exec(trimmed);
+  // Short forms, e.g. {soc} / {eoc}.
+  const shortOpen = SHORT_OPEN.exec(trimmed);
+  if (shortOpen && SHORT_ENV[shortOpen.groups?.key ?? ""]) {
+    const name = SHORT_ENV[shortOpen.groups!.key];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+  if (SHORT_CLOSE.test(trimmed)) {
+    return "";
+  }
+  // A comment directive requires a colon, so {comment_italic: ...} is not one.
+  const comment = /^\{comment\s*:\s*(?<label>[^}]*)\}$/i.exec(trimmed);
   if (comment) {
     return (comment.groups?.label ?? "").trim();
   }
@@ -82,7 +128,13 @@ export function parseLine(rawLine: string): PreviewLine {
   const heading = sectionHeading(line);
   if (heading !== null) {
     // A section open/close or comment directive, or a bare "[Chorus]" label.
-    return { kind: "section", text: heading, segments: [] };
+    return {
+      kind: "section",
+      text: heading,
+      segments: [],
+      opens: opensEnvironment(line),
+      closes: closesEnvironment(line),
+    };
   }
   if (line.trimStart().startsWith("{")) {
     return { kind: "directive", text: line, segments: [] };

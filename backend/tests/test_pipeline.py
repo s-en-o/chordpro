@@ -145,6 +145,33 @@ def test_sections_wrap_chorus_in_environment() -> None:
     ]
 
 
+def test_brace_form_section_label_is_wrapped() -> None:
+    # Regression: {Verse 1} was classified as a directive and never wrapped.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("{Verse 1}", 0), make_line("A verse line", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert [line.text for line in song.lines] == [
+        "{start_of_verse}",
+        "A verse line",
+        "{end_of_verse}",
+    ]
+
+
+def test_section_label_with_detail_still_wraps() -> None:
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("[Outro tag]", 0), make_line("bye", 14)],
+    )
+    song = convert_layout(LayoutDoc(pages=[page]))
+    assert song.lines[0].text == "{comment: Outro tag}"
+
+
 def test_section_without_environment_becomes_comment() -> None:
     page = Page(
         number=1,

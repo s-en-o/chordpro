@@ -125,6 +125,17 @@ def test_guess_metadata_ignores_placeholder_artist_from_title() -> None:
     assert guess_metadata(layout) == {"title": "Foo"}
 
 
+def test_guess_metadata_ignores_section_label_as_title() -> None:
+    # A large, bold "[Chorus]" on the first page must not become the title.
+    page = Page(
+        number=1,
+        width=600,
+        height=800,
+        lines=[make_line("[Chorus]", 24), make_line("sing a line", 10)],
+    )
+    assert guess_metadata(LayoutDoc(pages=[page])) == {}
+
+
 def test_guess_metadata_does_not_treat_directive_as_title() -> None:
     # The directive line is the LARGEST text, so only the directive guard can
     # reject it (the size-ratio rule would otherwise accept it as a heading).

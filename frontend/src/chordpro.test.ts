@@ -125,6 +125,27 @@ describe("parseLine sections", () => {
     const line = parseLine("{start_of_chorus}");
     expect(line.kind).toBe("section");
     expect(line.text).toBe("Chorus");
+    expect(line.opens).toBe(true);
+    expect(line.closes).toBeFalsy();
+  });
+
+  it("marks a closing directive with closes=true", () => {
+    const line = parseLine("{end_of_chorus}");
+    expect(line.kind).toBe("section");
+    expect(line.closes).toBe(true);
+  });
+
+  it("supports short forms {soc}/{eoc}", () => {
+    expect(parseLine("{soc}").opens).toBe(true);
+    expect(parseLine("{eoc}").closes).toBe(true);
+  });
+
+  it("does not treat {comment_italic: ...} as a section comment", () => {
+    expect(sectionHeading("{comment_italic: softly}")).toBeNull();
+  });
+
+  it("treats {comment: X} as a section heading", () => {
+    expect(sectionHeading("{comment: Intro}")).toBe("Intro");
   });
 
   it("does not treat a bare '[Chorus]' as a chord", () => {

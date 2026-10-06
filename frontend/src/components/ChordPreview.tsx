@@ -1,21 +1,11 @@
 import { useEffect, useRef } from "react";
 
-import { parseChordPro, type PreviewLine } from "../chordpro";
+import { closesEnvironment, opensEnvironment, parseChordPro, type PreviewLine } from "../chordpro";
 
 interface ChordPreviewProps {
   chordpro: string;
   /** Display line number to highlight and scroll to, or null. */
   highlightLine: number | null;
-}
-
-/** True when a section directive opens an environment (has a matching close). */
-function opensEnvironment(text: string): boolean {
-  return /^\{start_of_[a-z_]+\s*:?\s*[^}]*\}$/.test(text.trim());
-}
-
-/** True when a section directive closes an environment. */
-function closesEnvironment(text: string): boolean {
-  return /^\{end_of_[a-z_]+\}$/.test(text.trim());
 }
 
 /** Render one parsed line: sections/directives as headings, chords above lyrics. */
@@ -24,16 +14,12 @@ function PreviewLineView({ line, indented }: { line: PreviewLine; indented: bool
     return <div className="h-4" />;
   }
   if (line.kind === "section") {
-    if (closesEnvironment(line.text) || line.text === "") {
+    if (line.closes || line.text === "") {
       // A closing directive just ends the indented block; nothing to show.
       return null;
     }
     return (
-      <div
-        className={
-          "mt-4 font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200"
-        }
-      >
+      <div className="mt-4 font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
         {line.text}
       </div>
     );
@@ -94,7 +80,7 @@ export default function ChordPreview({ chordpro, highlightLine }: ChordPreviewPr
       className="h-[480px] overflow-auto rounded-lg border border-slate-200 bg-white p-4 font-mono text-sm dark:border-slate-800 dark:bg-slate-900"
     >
       {lines.map((line, index) => {
-        if (line.kind === "section" && opensEnvironment(line.text)) {
+        if (line.kind === "section" && line.opens) {
           depth += 1;
         }
         const indented = depth > 0 && line.kind !== "section";
@@ -111,7 +97,7 @@ export default function ChordPreview({ chordpro, highlightLine }: ChordPreviewPr
             <PreviewLineView line={line} indented={indented} />
           </div>
         );
-        if (line.kind === "section" && closesEnvironment(line.text)) {
+        if (line.kind === "section" && line.closes) {
           depth = Math.max(0, depth - 1);
         }
         return element;
