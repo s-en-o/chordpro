@@ -107,6 +107,18 @@ def test_guess_metadata_ignores_uniform_text_without_a_heading() -> None:
     assert guess_metadata(layout) == {}
 
 
+def test_guess_metadata_ignores_placeholder_document_title() -> None:
+    # Tools like reportlab write "untitled"/"anonymous" placeholders; these
+    # must not become the song's metadata.
+    layout = LayoutDoc(metadata={"title": "untitled", "author": "anonymous"})
+    assert guess_metadata(layout) == {}
+
+
+def test_guess_metadata_ignores_case_insensitive_placeholders() -> None:
+    layout = LayoutDoc(metadata={"title": "Untitled", "author": "ANONYMOUS"})
+    assert guess_metadata(layout) == {}
+
+
 def test_guess_metadata_does_not_treat_directive_as_title() -> None:
     # The directive line is the LARGEST text, so only the directive guard can
     # reject it (the size-ratio rule would otherwise accept it as a heading).

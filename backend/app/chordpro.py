@@ -24,6 +24,13 @@ _TRAILING_CHORDS = re.compile(r"\s+chords?\s*$", re.IGNORECASE)
 # body size; uniform text (e.g. pasted text) is 1.0x and has no heading.
 _TITLE_SIZE_RATIO = 1.15
 
+# Placeholder values some tools write into PDF metadata (e.g. reportlab writes
+# title="untitled", author="anonymous"). They carry no information and must not
+# become song metadata.
+_PLACEHOLDER_VALUES = frozenset(
+    {"untitled", "anonymous", "unknown", "none", "n/a", "unspecified", "unknown artist"}
+)
+
 # A ChordPro directive line: one whole line of the form "{key: value}". The
 # value stops at the first "}" and the whole line must be a single directive,
 # so a line containing two directives is not mis-parsed.
@@ -134,6 +141,8 @@ def guess_metadata(layout: LayoutDoc) -> dict[str, str]:
     metadata: dict[str, str] = {}
 
     raw_title = layout.metadata.get("title", "").strip()
+    if _is_placeholder(raw_title):
+        raw_title = ""
     if not raw_title and NO_HEADING_KEY not in layout.metadata:
         raw_title = _largest_text_first_page(layout)
 
@@ -143,10 +152,17 @@ def guess_metadata(layout: LayoutDoc) -> dict[str, str]:
 
     # An explicit document author wins over the artist parsed from the title.
     artist = layout.metadata.get("author", "").strip() or derived_artist
+    if _is_placeholder(artist):
+        artist = derived_artist
     if artist:
         metadata["artist"] = artist
 
     return metadata
+
+
+def _is_placeholder(value: str) -> bool:
+    """Return True for known junk metadata values (e.g. "untitled")."""
+    return value.strip().lower() in _PLACEHOLDER_VALUES
 
 
 def _largest_text_first_page(layout: LayoutDoc) -> str:
